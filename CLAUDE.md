@@ -32,13 +32,12 @@ There are no tests, build steps, or linters.
 |------|---------|
 | `01-setup-dnf.sh` | Configures libdnf5 (fastest mirror, parallel downloads), runs `dnf update/upgrade` |
 | `02-install-basic-tools.sh` | Enables RPM Fusion free/nonfree, installs core CLI tools (git, curl, neovim, fzf, rg, gh, etc.) |
-| `03-setup-timeshift.sh` | Installs Timeshift, configures rsync snapshots with 5 daily backups, and creates an initial snapshot when none exists |
-| `04-install-drivers.sh` | Runs fwupd firmware updates, installs multimedia codecs (ffmpeg, GStreamer) |
-| `05-setup-flatpak.sh` | Adds Flathub remotes (system + user), installs Gear Lever |
-| `06-install-software.sh` | Installs dev runtimes (Rust, Go, Node, Python, .NET), removes Firefox, installs Zen Browser via Flatpak, installs Docker Desktop |
-| `07-install-config.sh` | Placeholder |
-| `08-install-themes.sh` | Placeholder |
-| `09-setup-accounts.sh` | Placeholder |
+| `03-install-drivers.sh` | Runs fwupd firmware updates, installs multimedia codecs (ffmpeg, GStreamer) |
+| `04-setup-flatpak.sh` | Adds Flathub remotes (system + user), installs Gear Lever |
+| `05-install-software.sh` | Installs dev runtimes (Rust, Go, Node, Python, .NET), removes Firefox, installs Zen Browser via Flatpak, installs Docker Desktop |
+| `06-install-config.sh` | Placeholder |
+| `07-install-themes.sh` | Placeholder |
+| `08-setup-accounts.sh` | Placeholder |
 
 ## Conventions
 
