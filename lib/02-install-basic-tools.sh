@@ -1,24 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
+sudo dnf group upgrade core -y
+sudo dnf4 group install core -y
+
 sudo dnf install -y \
     git \
     curl \
     wget \
     tree \
+    gh \
+    fzf \
+    rg \
+    neovim \
+    fastfetch \
     unzip \
     tar \
     xz 
-
-set +e
-sudo fwupdmgr refresh --force
-sudo fwupdmgr get-devices
-sudo fwupdmgr get-updates
-sudo fwupdmgr update
-set -e
-
-sudo dnf4 group install multimedia -y
-sudo dnf swap 'ffmpeg-free' 'ffmpeg' --allowerasing  -y # Switch to full FFMPEG.
-sudo dnf upgrade @multimedia --setopt="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin -y # Installs gstreamer components. Required if you use Gnome Videos and other dependent applications.
-sudo dnf group install -y sound-and-video # Installs useful Sound and Video complementary packages.
 

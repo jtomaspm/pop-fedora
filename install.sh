@@ -9,6 +9,8 @@ TEMP_DIR=""
 FAILED_STEP=""
 
 declare -a STEPS=()
+declare -a MANDATORY_STEPS=()
+declare -a OPTIONAL_STEPS=()
 declare -a RUN_STEPS=()
 declare -a SKIPPED_STEPS=()
 
@@ -105,28 +107,46 @@ describe_step() {
     printf '%s\n' "$step_name"
 }
 
-prompt_step_action() {
+classify_steps() {
+    local step_file
+    local step_number
+
+    for step_file in "${STEPS[@]}"; do
+        step_number="$(step_number_from_file "$step_file")"
+        if [[ "$step_number" == "01" || "$step_number" == "02" ]]; then
+            MANDATORY_STEPS+=("$step_file")
+        else
+            OPTIONAL_STEPS+=("$step_file")
+        fi
+    done
+}
+
+select_optional_steps() {
+    local step_file
     local step_number
     local step_description
-    local answer
+    local labels=()
+    local label
+    local selected
 
-    step_number="$1"
-    step_description="$2"
+    for step_file in "${OPTIONAL_STEPS[@]}"; do
+        step_number="$(step_number_from_file "$step_file")"
+        step_description="$(describe_step "$step_file")"
+        labels+=("[$step_number] $step_description")
+    done
 
-    while true; do
-        read -r -p "[$step_number] $step_description: run or skip? [r/s] " answer
+    selected="$(printf '%s\n' "${labels[@]}" \
+        | fzf --multi \
+              --bind 'start:select-all' \
+              --prompt 'Optional steps (TAB to toggle, ENTER to confirm): ')"
 
-        case "${answer,,}" in
-            r|run)
-                return 0
-                ;;
-            s|skip)
-                return 1
-                ;;
-            *)
-                echo "Enter 'r' to run or 's' to skip."
-                ;;
-        esac
+    for step_file in "${OPTIONAL_STEPS[@]}"; do
+        step_number="$(step_number_from_file "$step_file")"
+        step_description="$(describe_step "$step_file")"
+        label="[$step_number] $step_description"
+        if printf '%s\n' "$selected" | grep -qxF "$label"; then
+            printf '%s\n' "$step_file"
+        fi
     done
 }
 
@@ -196,25 +216,43 @@ main() {
     fi
 
     collect_steps
+    classify_steps
 
-    for step_file in "${STEPS[@]}"; do
+    for step_file in "${MANDATORY_STEPS[@]}"; do
         step_number="$(step_number_from_file "$step_file")"
         step_description="$(describe_step "$step_file")"
-
-        if prompt_step_action "$step_number" "$step_description"; then
-            if run_step "$step_file"; then
-                RUN_STEPS+=("[$step_number] $step_description")
-            else
-                exit_code=$?
-                FAILED_STEP="[$step_number] $step_description"
-                echo "Step failed: $FAILED_STEP" >&2
-                print_summary
-                return "$exit_code"
-            fi
+        if run_step "$step_file"; then
+            RUN_STEPS+=("[$step_number] $step_description")
         else
-            SKIPPED_STEPS+=("[$step_number] $step_description")
+            exit_code=$?
+            FAILED_STEP="[$step_number] $step_description"
+            echo "Step failed: $FAILED_STEP" >&2
+            print_summary
+            return "$exit_code"
         fi
     done
+
+    if [[ "${#OPTIONAL_STEPS[@]}" -gt 0 ]]; then
+        mapfile -t SELECTED_STEPS < <(select_optional_steps)
+
+        for step_file in "${OPTIONAL_STEPS[@]}"; do
+            step_number="$(step_number_from_file "$step_file")"
+            step_description="$(describe_step "$step_file")"
+            if printf '%s\n' "${SELECTED_STEPS[@]:-}" | grep -qxF "$step_file"; then
+                if run_step "$step_file"; then
+                    RUN_STEPS+=("[$step_number] $step_description")
+                else
+                    exit_code=$?
+                    FAILED_STEP="[$step_number] $step_description"
+                    echo "Step failed: $FAILED_STEP" >&2
+                    print_summary
+                    return "$exit_code"
+                fi
+            else
+                SKIPPED_STEPS+=("[$step_number] $step_description")
+            fi
+        done
+    fi
 
     print_summary
 }
