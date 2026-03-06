@@ -36,15 +36,15 @@ dnf install -y \
 DOCKER_DESKTOP_URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64-rhel.rpm?utm_source=docker&utm_medium=webreferral&utm_campaign=docs-driven-download-linux-amd64"
 
 # Docker repo is required by Docker Desktop on Fedora.
-sudo dnf -y install dnf-plugins-core
-sudo dnf config-manager addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
+dnf -y install dnf-plugins-core
+dnf config-manager addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
 
 
 tmp_rpm="$(mktemp --suffix=.rpm)"
 trap 'rm -f "$tmp_rpm"' EXIT
 
 curl -fL "$DOCKER_DESKTOP_URL" -o "$tmp_rpm"
-sudo dnf -y install "$tmp_rpm"
+dnf -y install "$tmp_rpm"
 
 echo
 echo "Docker Desktop installed."
