@@ -74,7 +74,7 @@ preflight_docker_desktop_qemu_conflict() {
 
 # Docker repo is required by Docker Desktop on Fedora.
 dnf -y install dnf-plugins-core
-dnf config-manager addrepo --from-repofile --overwrite https://download.docker.com/linux/fedora/docker-ce.repo
+dnf config-manager --overwrite addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
 
 preflight_docker_desktop_qemu_conflict
 
