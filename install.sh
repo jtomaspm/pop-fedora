@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-POP_FEDORA_GITHUB_OWNER="${POP_FEDORA_GITHUB_OWNER:-jtomaspm}"
-POP_FEDORA_GITHUB_REPO="${POP_FEDORA_GITHUB_REPO:-pop-fedora}"
-POP_FEDORA_GITHUB_REF="${POP_FEDORA_GITHUB_REF:-main}"
+readonly REPO_ARCHIVE_URL="https://github.com/jtomaspm/pop-fedora/archive/refs/heads/main.tar.gz"
 
-EXECUTION_MODE=""
 REPO_ROOT=""
 LIB_DIR=""
 TEMP_DIR=""
@@ -34,36 +31,28 @@ resolve_repo_root() {
     return 1
 }
 
-detect_execution_mode() {
-    if REPO_ROOT="$(resolve_repo_root)"; then
-        EXECUTION_MODE="local"
-        LIB_DIR="$REPO_ROOT/lib"
-        return 0
-    fi
-
-    EXECUTION_MODE="bootstrap"
-}
-
-prepare_temp_repo_if_needed() {
+prepare_bootstrap_repo() {
     local archive_path
-    local archive_url
-
-    if [[ "$EXECUTION_MODE" == "local" ]]; then
-        return 0
-    fi
+    local extracted_dir
 
     TEMP_DIR="$(mktemp -d)"
     archive_path="$TEMP_DIR/repo.tar.gz"
-    archive_url="https://github.com/${POP_FEDORA_GITHUB_OWNER}/${POP_FEDORA_GITHUB_REPO}/archive/refs/heads/${POP_FEDORA_GITHUB_REF}.tar.gz"
 
-    echo "Bootstrapping ${POP_FEDORA_GITHUB_OWNER}/${POP_FEDORA_GITHUB_REPO}@${POP_FEDORA_GITHUB_REF}"
-    wget -qO "$archive_path" "$archive_url"
+    echo "Bootstrapping jtomaspm/pop-fedora@main"
+    wget -qO "$archive_path" "$REPO_ARCHIVE_URL"
     tar -xzf "$archive_path" -C "$TEMP_DIR"
 
-    REPO_ROOT="$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+    extracted_dir="$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+
+    if [[ -z "$extracted_dir" ]]; then
+        echo "Failed to extract the repository archive." >&2
+        return 1
+    fi
+
+    REPO_ROOT="$extracted_dir"
     LIB_DIR="$REPO_ROOT/lib"
 
-    if [[ -z "$REPO_ROOT" || ! -f "$REPO_ROOT/install.sh" || ! -d "$LIB_DIR" ]]; then
+    if [[ ! -f "$REPO_ROOT/install.sh" || ! -d "$LIB_DIR" ]]; then
         echo "Failed to prepare a temporary checkout of the repository." >&2
         return 1
     fi
@@ -198,10 +187,10 @@ main() {
 
     trap cleanup EXIT
 
-    detect_execution_mode
-
-    if [[ "$EXECUTION_MODE" == "bootstrap" ]]; then
-        prepare_temp_repo_if_needed
+    if REPO_ROOT="$(resolve_repo_root)"; then
+        LIB_DIR="$REPO_ROOT/lib"
+    else
+        prepare_bootstrap_repo
         bash "$REPO_ROOT/install.sh" "$@"
         return $?
     fi

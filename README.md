@@ -15,11 +15,3 @@ bash <(wget -qO- https://raw.githubusercontent.com/jtomaspm/pop-fedora/main/inst
 ```bash
 bash install.sh
 ```
-
-## Bootstrap overrides
-
-If you want to bootstrap from a fork or a different branch, override the defaults before running the command:
-
-```bash
-POP_FEDORA_GITHUB_OWNER=your-user POP_FEDORA_GITHUB_REPO=pop-fedora POP_FEDORA_GITHUB_REF=your-branch bash <(wget -qO- https://raw.githubusercontent.com/jtomaspm/pop-fedora/main/install.sh)
-```
