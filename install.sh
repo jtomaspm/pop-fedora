@@ -121,34 +121,6 @@ classify_steps() {
     done
 }
 
-select_optional_steps() {
-    local step_file
-    local step_number
-    local step_description
-    local labels=()
-    local label
-    local selected
-
-    for step_file in "${OPTIONAL_STEPS[@]}"; do
-        step_number="$(step_number_from_file "$step_file")"
-        step_description="$(describe_step "$step_file")"
-        labels+=("[$step_number] $step_description")
-    done
-
-    selected="$(printf '%s\n' "${labels[@]}" \
-        | fzf --multi \
-              --bind 'start:select-all' \
-              --prompt 'Optional steps (TAB to toggle, ENTER to confirm): ')"
-
-    for step_file in "${OPTIONAL_STEPS[@]}"; do
-        step_number="$(step_number_from_file "$step_file")"
-        step_description="$(describe_step "$step_file")"
-        label="[$step_number] $step_description"
-        if printf '%s\n' "$selected" | grep -qxF "$label"; then
-            printf '%s\n' "$step_file"
-        fi
-    done
-}
 
 run_step() {
     local step_file
@@ -232,13 +204,36 @@ main() {
         fi
     done
 
-    if [[ "${#OPTIONAL_STEPS[@]}" -gt 0 ]]; then
-        mapfile -t SELECTED_STEPS < <(select_optional_steps)
+    declare -a PENDING_STEPS=("${OPTIONAL_STEPS[@]+"${OPTIONAL_STEPS[@]}"}")
 
-        for step_file in "${OPTIONAL_STEPS[@]}"; do
+    while [[ "${#PENDING_STEPS[@]}" -gt 0 ]]; do
+        local labels=()
+        for step_file in "${PENDING_STEPS[@]}"; do
             step_number="$(step_number_from_file "$step_file")"
             step_description="$(describe_step "$step_file")"
-            if printf '%s\n' "${SELECTED_STEPS[@]:-}" | grep -qxF "$step_file"; then
+            labels+=("[$step_number] $step_description")
+        done
+
+        selected="$(printf '%s\n' "${labels[@]}" \
+            | fzf --multi \
+                  --bind 'start:select-all' \
+                  --bind 'q:abort' \
+                  --header 'TAB: toggle | ENTER: run selected | q: quit' \
+                  --prompt 'Optional steps: ')" || {
+            for step_file in "${PENDING_STEPS[@]}"; do
+                step_number="$(step_number_from_file "$step_file")"
+                step_description="$(describe_step "$step_file")"
+                SKIPPED_STEPS+=("[$step_number] $step_description")
+            done
+            break
+        }
+
+        declare -a NEXT_PENDING=()
+        for step_file in "${PENDING_STEPS[@]}"; do
+            step_number="$(step_number_from_file "$step_file")"
+            step_description="$(describe_step "$step_file")"
+            label="[$step_number] $step_description"
+            if printf '%s\n' "$selected" | grep -qxF "$label"; then
                 if run_step "$step_file"; then
                     RUN_STEPS+=("[$step_number] $step_description")
                 else
@@ -249,10 +244,11 @@ main() {
                     return "$exit_code"
                 fi
             else
-                SKIPPED_STEPS+=("[$step_number] $step_description")
+                NEXT_PENDING+=("$step_file")
             fi
         done
-    fi
+        PENDING_STEPS=("${NEXT_PENDING[@]+"${NEXT_PENDING[@]}"}")
+    done
 
     print_summary
 }
