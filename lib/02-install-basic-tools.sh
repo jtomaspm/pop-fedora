@@ -2,6 +2,8 @@
 set -euo pipefail
 
 dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
+dnf update -y
+dnf upgrade -y
 dnf group upgrade core -y
 dnf4 group install core -y
 
