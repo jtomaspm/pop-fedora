@@ -21,7 +21,7 @@ dnf upgrade -y
 dnf install -y \
     rust \
     cargo \
-    dotnet-sdk-10 \
+    dotnet-sdk-10.0 \
     nodejs \
     npm \
     python3 \
