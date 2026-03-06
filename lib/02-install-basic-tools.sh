@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
-sudo dnf group upgrade core -y
-sudo dnf4 group install core -y
+dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
+dnf group upgrade core -y
+dnf4 group install core -y
 
-sudo dnf install -y \
+dnf install -y \
     git \
     curl \
     wget \
@@ -18,4 +18,3 @@ sudo dnf install -y \
     unzip \
     tar \
     xz 
-

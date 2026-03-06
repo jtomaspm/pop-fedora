@@ -7,14 +7,17 @@ REPO_ROOT=""
 LIB_DIR=""
 TEMP_DIR=""
 FAILED_STEP=""
+KEEPALIVE_PID=""
 
 declare -a STEPS=()
-declare -a MANDATORY_STEPS=()
-declare -a OPTIONAL_STEPS=()
 declare -a RUN_STEPS=()
-declare -a SKIPPED_STEPS=()
 
 cleanup() {
+    if [[ -n "${KEEPALIVE_PID:-}" ]]; then
+        kill "$KEEPALIVE_PID" 2>/dev/null || true
+        wait "$KEEPALIVE_PID" 2>/dev/null || true
+    fi
+
     if [[ -n "${TEMP_DIR:-}" && -d "${TEMP_DIR:-}" ]]; then
         rm -rf "$TEMP_DIR"
     fi
@@ -107,20 +110,21 @@ describe_step() {
     printf '%s\n' "$step_name"
 }
 
-classify_steps() {
-    local step_file
-    local step_number
+ensure_sudo_session() {
+    if [[ "$EUID" -eq 0 ]]; then
+        return 0
+    fi
 
-    for step_file in "${STEPS[@]}"; do
-        step_number="$(step_number_from_file "$step_file")"
-        if [[ "$step_number" == "01" || "$step_number" == "02" ]]; then
-            MANDATORY_STEPS+=("$step_file")
-        else
-            OPTIONAL_STEPS+=("$step_file")
-        fi
-    done
+    echo "Authenticating sudo access"
+    sudo -v
+
+    while true; do
+        sudo -n true
+        sleep 60
+        kill -0 "$$" 2>/dev/null || exit
+    done >/dev/null 2>&1 &
+    KEEPALIVE_PID=$!
 }
-
 
 run_step() {
     local step_file
@@ -139,7 +143,13 @@ run_step() {
 
     echo
     echo "Running [$step_number] $step_name"
-    bash "$step_file"
+    if [[ "$EUID" -eq 0 ]]; then
+        bash "$step_file"
+        return 0
+    fi
+
+    sudo --preserve-env=POP_FEDORA_REPO_ROOT,POP_FEDORA_LIB_DIR,POP_FEDORA_STEP_FILE,POP_FEDORA_STEP_NAME,POP_FEDORA_STEP_NUMBER \
+        bash "$step_file"
 }
 
 print_summary() {
@@ -153,15 +163,6 @@ print_summary() {
     else
         echo "Ran:"
         for entry in "${RUN_STEPS[@]}"; do
-            echo "  $entry"
-        done
-    fi
-
-    if [[ "${#SKIPPED_STEPS[@]}" -eq 0 ]]; then
-        echo "Skipped: none"
-    else
-        echo "Skipped:"
-        for entry in "${SKIPPED_STEPS[@]}"; do
             echo "  $entry"
         done
     fi
@@ -188,9 +189,9 @@ main() {
     fi
 
     collect_steps
-    classify_steps
+    ensure_sudo_session
 
-    for step_file in "${MANDATORY_STEPS[@]}"; do
+    for step_file in "${STEPS[@]}"; do
         step_number="$(step_number_from_file "$step_file")"
         step_description="$(describe_step "$step_file")"
         if run_step "$step_file"; then
@@ -202,52 +203,6 @@ main() {
             print_summary
             return "$exit_code"
         fi
-    done
-
-    declare -a PENDING_STEPS=("${OPTIONAL_STEPS[@]+"${OPTIONAL_STEPS[@]}"}")
-
-    while [[ "${#PENDING_STEPS[@]}" -gt 0 ]]; do
-        local labels=()
-        for step_file in "${PENDING_STEPS[@]}"; do
-            step_number="$(step_number_from_file "$step_file")"
-            step_description="$(describe_step "$step_file")"
-            labels+=("[$step_number] $step_description")
-        done
-
-        selected="$(printf '%s\n' "${labels[@]}" \
-            | fzf --multi \
-                  --bind 'start:select-all' \
-                  --bind 'q:abort' \
-                  --header 'TAB: toggle | ENTER: run selected | q: quit' \
-                  --prompt 'Optional steps: ')" || {
-            for step_file in "${PENDING_STEPS[@]}"; do
-                step_number="$(step_number_from_file "$step_file")"
-                step_description="$(describe_step "$step_file")"
-                SKIPPED_STEPS+=("[$step_number] $step_description")
-            done
-            break
-        }
-
-        declare -a NEXT_PENDING=()
-        for step_file in "${PENDING_STEPS[@]}"; do
-            step_number="$(step_number_from_file "$step_file")"
-            step_description="$(describe_step "$step_file")"
-            label="[$step_number] $step_description"
-            if printf '%s\n' "$selected" | grep -qxF "$label"; then
-                if run_step "$step_file"; then
-                    RUN_STEPS+=("[$step_number] $step_description")
-                else
-                    exit_code=$?
-                    FAILED_STEP="[$step_number] $step_description"
-                    echo "Step failed: $FAILED_STEP" >&2
-                    print_summary
-                    return "$exit_code"
-                fi
-            else
-                NEXT_PENDING+=("$step_file")
-            fi
-        done
-        PENDING_STEPS=("${NEXT_PENDING[@]+"${NEXT_PENDING[@]}"}")
     done
 
     print_summary

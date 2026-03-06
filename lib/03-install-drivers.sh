@@ -2,13 +2,13 @@
 set -euo pipefail
 
 set +e
-sudo fwupdmgr refresh --force
-sudo fwupdmgr get-devices
-sudo fwupdmgr get-updates
-sudo fwupdmgr update
+fwupdmgr refresh --force
+fwupdmgr get-devices
+fwupdmgr get-updates
+fwupdmgr update
 set -e
 
-sudo dnf4 group install multimedia -y
-sudo dnf swap 'ffmpeg-free' 'ffmpeg' --allowerasing  -y
-sudo dnf upgrade @multimedia --setopt="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin -y
-sudo dnf group install -y sound-and-video
+dnf4 group install multimedia -y
+dnf swap 'ffmpeg-free' 'ffmpeg' --allowerasing -y
+dnf upgrade @multimedia --setopt="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin -y
+dnf group install -y sound-and-video
