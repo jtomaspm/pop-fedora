@@ -10,10 +10,12 @@ sudo dnf install -y \
     tar \
     xz 
 
+set +e
 sudo fwupdmgr refresh --force
 sudo fwupdmgr get-devices
 sudo fwupdmgr get-updates
 sudo fwupdmgr update
+set -e
 
 sudo dnf4 group install multimedia
 sudo dnf swap 'ffmpeg-free' 'ffmpeg' --allowerasing # Switch to full FFMPEG.
