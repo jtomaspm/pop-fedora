@@ -8,9 +8,33 @@ LIB_DIR=""
 TEMP_DIR=""
 FAILED_STEP=""
 KEEPALIVE_PID=""
+POP_FEDORA_GIT_USER_NAME="${POP_FEDORA_GIT_USER_NAME:-}"
+POP_FEDORA_GIT_USER_EMAIL="${POP_FEDORA_GIT_USER_EMAIL:-}"
 
 declare -a STEPS=()
 declare -a RUN_STEPS=()
+
+prompt_for_git_config() {
+    if [[ -n "$POP_FEDORA_GIT_USER_NAME" && -n "$POP_FEDORA_GIT_USER_EMAIL" ]]; then
+        return 0
+    fi
+
+    if [[ ! -t 0 ]]; then
+        echo "Git user.name and user.email must be provided in an interactive shell." >&2
+        return 1
+    fi
+
+    while [[ -z "$POP_FEDORA_GIT_USER_NAME" ]]; do
+        read -r -p "Git user.name: " POP_FEDORA_GIT_USER_NAME
+    done
+
+    while [[ -z "$POP_FEDORA_GIT_USER_EMAIL" ]]; do
+        read -r -p "Git user.email: " POP_FEDORA_GIT_USER_EMAIL
+    done
+
+    export POP_FEDORA_GIT_USER_NAME
+    export POP_FEDORA_GIT_USER_EMAIL
+}
 
 cleanup() {
     if [[ -n "${KEEPALIVE_PID:-}" ]]; then
@@ -140,6 +164,8 @@ run_step() {
     export POP_FEDORA_STEP_FILE="$step_file"
     export POP_FEDORA_STEP_NAME="$step_name"
     export POP_FEDORA_STEP_NUMBER="$step_number"
+    export POP_FEDORA_GIT_USER_NAME
+    export POP_FEDORA_GIT_USER_EMAIL
 
     echo
     echo "Running [$step_number] $step_name"
@@ -148,7 +174,7 @@ run_step() {
         return 0
     fi
 
-    sudo --preserve-env=POP_FEDORA_REPO_ROOT,POP_FEDORA_LIB_DIR,POP_FEDORA_STEP_FILE,POP_FEDORA_STEP_NAME,POP_FEDORA_STEP_NUMBER \
+    sudo --preserve-env=POP_FEDORA_REPO_ROOT,POP_FEDORA_LIB_DIR,POP_FEDORA_STEP_FILE,POP_FEDORA_STEP_NAME,POP_FEDORA_STEP_NUMBER,POP_FEDORA_GIT_USER_NAME,POP_FEDORA_GIT_USER_EMAIL \
         bash "$step_file"
 }
 
@@ -179,6 +205,7 @@ main() {
     local exit_code
 
     trap cleanup EXIT
+    prompt_for_git_config
 
     if REPO_ROOT="$(resolve_repo_root)"; then
         LIB_DIR="$REPO_ROOT/lib"
