@@ -74,9 +74,11 @@ tmp_rpm="$(mktemp --suffix=.rpm)"
 trap 'rm -f "$tmp_rpm"' EXIT
 
 curl -fL "$DOCKER_DESKTOP_URL" -o "$tmp_rpm"
+set +e
 dnf -y install "$tmp_rpm"
+set -e
 
 echo
 echo "Docker Desktop installed."
-echo "Launch it from your desktop session, or run:"
-echo "  systemctl --user start docker-desktop"
+echo "May fail on VMs without nested virtualization support or if running under WSL. Please check the output above for any errors."
+echo
