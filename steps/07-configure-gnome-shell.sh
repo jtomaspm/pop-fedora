@@ -64,6 +64,7 @@ pf_log_info "Applying GNOME power profile"
 run_user gsettings set org.gnome.settings-daemon.plugins.power idle-dim false
 run_user gsettings set org.gnome.settings-daemon.plugins.power power-saver-profile-on-low-battery true
 run_user gsettings set org.gnome.desktop.session idle-delay 0
+run_user gsettings set org.gnome.desktop.screensaver lock-enabled false
 run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type 'suspend'
 run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-timeout 900
 run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'nothing'
