@@ -41,9 +41,11 @@ dnf config-manager addrepo --overwrite --from-repofile https://download.docker.c
 
 dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 systemctl enable --now docker
+set +e
 groupadd docker
 usermod -aG docker $USER
 newgrp docker
+set -e
 systemctl enable docker.service
 systemctl enable containerd.service
 
