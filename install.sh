@@ -117,6 +117,7 @@ fi
 
 REPO_ROOT=""
 LIB_DIR=""
+STEPS_DIR=""
 TEMP_DIR=""
 FAILED_STEP=""
 KEEPALIVE_PID=""
@@ -232,7 +233,7 @@ resolve_repo_root() {
 
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
-    if [[ -f "$script_dir/install.sh" && -d "$script_dir/lib" ]]; then
+    if [[ -f "$script_dir/install.sh" && -d "$script_dir/lib" && -d "$script_dir/steps" ]]; then
         printf '%s\n' "$script_dir"
         return 0
     fi
@@ -261,18 +262,19 @@ prepare_bootstrap_repo() {
 
     REPO_ROOT="$extracted_dir"
     LIB_DIR="$REPO_ROOT/lib"
+    STEPS_DIR="$REPO_ROOT/steps"
 
-    if [[ ! -f "$REPO_ROOT/install.sh" || ! -d "$LIB_DIR" ]]; then
+    if [[ ! -f "$REPO_ROOT/install.sh" || ! -d "$LIB_DIR" || ! -d "$STEPS_DIR" ]]; then
         pf_log_error "Failed to prepare a temporary checkout of the repository."
         return 1
     fi
 }
 
 collect_steps() {
-    mapfile -t STEPS < <(find "$LIB_DIR" -maxdepth 1 -type f -name '*.sh' | sort)
+    mapfile -t STEPS < <(find "$STEPS_DIR" -maxdepth 1 -type f -name '*.sh' | sort)
 
     if [[ "${#STEPS[@]}" -eq 0 ]]; then
-        pf_log_error "No installer steps were found in $LIB_DIR"
+        pf_log_error "No installer steps were found in $STEPS_DIR"
         return 1
     fi
 }
@@ -343,6 +345,7 @@ run_step() {
 
     export POP_FEDORA_REPO_ROOT="$REPO_ROOT"
     export POP_FEDORA_LIB_DIR="$LIB_DIR"
+    export POP_FEDORA_STEPS_DIR="$STEPS_DIR"
     export POP_FEDORA_STEP_FILE="$step_file"
     export POP_FEDORA_STEP_NAME="$step_name"
     export POP_FEDORA_STEP_NUMBER="$step_number"
@@ -356,7 +359,7 @@ run_step() {
         return 0
     fi
 
-    sudo --preserve-env=POP_FEDORA_REPO_ROOT,POP_FEDORA_LIB_DIR,POP_FEDORA_STEP_FILE,POP_FEDORA_STEP_NAME,POP_FEDORA_STEP_NUMBER,POP_FEDORA_GIT_USER_NAME,POP_FEDORA_GIT_USER_EMAIL \
+    sudo --preserve-env=POP_FEDORA_REPO_ROOT,POP_FEDORA_LIB_DIR,POP_FEDORA_STEPS_DIR,POP_FEDORA_STEP_FILE,POP_FEDORA_STEP_NAME,POP_FEDORA_STEP_NUMBER,POP_FEDORA_GIT_USER_NAME,POP_FEDORA_GIT_USER_EMAIL \
         bash "$step_file"
 }
 
@@ -395,6 +398,7 @@ main() {
     pf_log_section "Repository"
     if REPO_ROOT="$(resolve_repo_root)"; then
         LIB_DIR="$REPO_ROOT/lib"
+        STEPS_DIR="$REPO_ROOT/steps"
         pf_log_info "Using local checkout at $REPO_ROOT"
     else
         prepare_bootstrap_repo

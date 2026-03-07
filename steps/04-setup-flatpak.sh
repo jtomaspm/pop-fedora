@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=lib/logging.sh
-source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}/logging.sh"
+# shellcheck source=../lib/logging.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/logging.sh"
 
 flathub_remote_name="flathub"
 flathub_remote_url="https://dl.flathub.org/repo/flathub.flatpakrepo"
