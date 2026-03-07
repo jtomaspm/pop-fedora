@@ -26,7 +26,7 @@ flatpak install --system -y flathub com.vysp3r.ProtonPlus
 flatpak install --system -y flathub org.onlyoffice.desktopeditors
 flatpak install --system -y flathub io.ente.auth
 
-dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo -y
+dnf config-manager addrepo --overwrite --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo -y
 dnf install gh --repo gh-cli -y
 
 dnf install -y \
