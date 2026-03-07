@@ -25,8 +25,10 @@ configure_git() {
     "${git_config_cmd[@]}" pull.rebase false
 }
 
+set +e
 dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
 dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release -y
+set -e
 dnf update -y
 dnf upgrade -y
 dnf group upgrade core -y
