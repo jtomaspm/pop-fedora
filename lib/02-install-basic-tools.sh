@@ -1,6 +1,46 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+install_repository_releases() {
+    local fedora_version
+
+    fedora_version="$(rpm -E %fedora)"
+
+    set +e
+    dnf install \
+        "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${fedora_version}.noarch.rpm" \
+        "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${fedora_version}.noarch.rpm" \
+        -y
+    dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release -y
+    set -e
+}
+
+update_core_packages() {
+    dnf update -y
+    dnf upgrade -y
+    dnf group upgrade core -y
+    dnf4 group install core -y
+}
+
+install_basic_tools() {
+    dnf install -y \
+        git \
+        curl \
+        wget \
+        tree \
+        fzf \
+        rg \
+        neovim \
+        fastfetch \
+        unzip \
+        tar \
+        xz
+}
+
+install_dnf_plugins() {
+    dnf install dnf5-plugins dnf-plugins-core -y
+}
+
 configure_git() {
     local git_user_name
     local git_user_email
@@ -26,29 +66,13 @@ configure_git() {
     "${git_config_cmd[@]}" pull.rebase false
 }
 
-set +e
-dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
-dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release -y
-set -e
-dnf update -y
-dnf upgrade -y
-dnf group upgrade core -y
-dnf4 group install core -y
+# ---------- Third-party repositories ----------
+install_repository_releases
 
+# ---------- Core system packages ----------
+update_core_packages
+install_basic_tools
+install_dnf_plugins
 
-dnf install -y \
-    git \
-    curl \
-    wget \
-    tree \
-    fzf \
-    rg \
-    neovim \
-    fastfetch \
-    unzip \
-    tar \
-    xz
-
-dnf install dnf5-plugins dnf-plugins-core -y
-
+# ---------- Git configuration ----------
 configure_git

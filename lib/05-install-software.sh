@@ -1,109 +1,173 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-systemctl disable NetworkManager-wait-online.service
+disable_wait_online_service() {
+    systemctl disable NetworkManager-wait-online.service
+}
 
-dnf install -y openh264 gstreamer1-plugin-openh264 mozilla-openh264
-dnf config-manager setopt fedora-cisco-openh264.enabled=1
+install_openh264_support() {
+    dnf install -y openh264 gstreamer1-plugin-openh264 mozilla-openh264
+    dnf config-manager setopt fedora-cisco-openh264.enabled=1
+}
 
-dnf remove -y \
-    firefox \
-    ptyxis \
-    libreoffice-writer \
-    libreoffice-calc \
-    libreoffice-impress \
-    libreoffice-core
+remove_preinstalled_software() {
+    dnf remove -y \
+        firefox \
+        ptyxis \
+        libreoffice-writer \
+        libreoffice-calc \
+        libreoffice-impress \
+        libreoffice-core
+}
 
-dnf autoremove -y
-dnf clean all
-dnf update -y
-dnf upgrade -y
+refresh_system_packages() {
+    dnf autoremove -y
+    dnf clean all
+    dnf update -y
+    dnf upgrade -y
+}
 
-flatpak install --system -y flathub app.zen_browser.zen
-flatpak install --system -y flathub com.stremio.Stremio
-flatpak install --system -y flathub com.mattjakeman.ExtensionManager
-flatpak install --system -y flathub com.vysp3r.ProtonPlus
-flatpak install --system -y flathub org.onlyoffice.desktopeditors
-flatpak install --system -y flathub io.ente.auth
+install_flatpak_software() {
+    flatpak install --system -y flathub app.zen_browser.zen
+    flatpak install --system -y flathub com.stremio.Stremio
+    flatpak install --system -y flathub com.mattjakeman.ExtensionManager
+    flatpak install --system -y flathub com.vysp3r.ProtonPlus
+    flatpak install --system -y flathub org.onlyoffice.desktopeditors
+    flatpak install --system -y flathub io.ente.auth
+}
 
-dnf config-manager addrepo --overwrite --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo -y
-dnf install gh --repo gh-cli -y
+install_github_cli() {
+    dnf config-manager addrepo --overwrite --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo -y
+    dnf install gh --repo gh-cli -y
+}
 
-dnf install -y \
-    zsh \
-    rust \
-    cargo \
-    dotnet-sdk-10.0 \
-    nodejs \
-    npm \
-    python3 \
-    pip3 \
-    golang
+install_development_tooling() {
+    dnf install -y \
+        zsh \
+        rust \
+        cargo \
+        dotnet-sdk-10.0 \
+        nodejs \
+        npm \
+        python3 \
+        pip3 \
+        golang
+}
 
-set +e
-rpm --import https://packages.microsoft.com/keys/microsoft.asc
-echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null
-dnf check-update -y
-set -e
+configure_vscode_repository() {
+    local vscode_key_url
+    local vscode_repo_file
+    local vscode_repo_config
 
-dnf install code -y
+    vscode_key_url="https://packages.microsoft.com/keys/microsoft.asc"
+    vscode_repo_file="/etc/yum.repos.d/vscode.repo"
+    vscode_repo_config="[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc"
 
-# Docker Desktop for Fedora
-# Official docs:
-# https://docs.docker.com/desktop/setup/install/linux/fedora/
+    set +e
+    rpm --import "$vscode_key_url"
+    echo -e "$vscode_repo_config" | sudo tee "$vscode_repo_file" > /dev/null
+    dnf check-update -y
+    set -e
+}
 
-# Docker Desktop is only supported on Fedora x86_64 and requires a desktop session.
-DOCKER_DESKTOP_URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64-rhel.rpm?utm_source=docker&utm_medium=webreferral&utm_campaign=docs-driven-download-linux-amd64"
-DOCKER_TARGET_USER="${SUDO_USER:-${USER:-}}"
+install_vscode() {
+    dnf install code -y
+}
 
-# Docker repo is required by Docker Desktop on Fedora.
-dnf config-manager addrepo --overwrite --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
+install_docker() {
+    local docker_desktop_url
+    local docker_target_user
 
-dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-systemctl enable --now docker
+    # Docker Desktop for Fedora
+    # Official docs:
+    # https://docs.docker.com/desktop/setup/install/linux/fedora/
 
-if ! getent group docker >/dev/null; then
-    groupadd docker
-fi
+    # Docker Desktop is only supported on Fedora x86_64 and requires a desktop session.
+    docker_desktop_url="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64-rhel.rpm?utm_source=docker&utm_medium=webreferral&utm_campaign=docs-driven-download-linux-amd64"
+    docker_target_user="${SUDO_USER:-${USER:-}}"
 
-if [[ -n "$DOCKER_TARGET_USER" && "$DOCKER_TARGET_USER" != "root" ]]; then
-    usermod -aG docker "$DOCKER_TARGET_USER"
-fi
+    # Docker repo is required by Docker Desktop on Fedora.
+    dnf config-manager addrepo --overwrite --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
 
-systemctl enable docker.service
-systemctl enable containerd.service
+    dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    systemctl enable --now docker
 
-echo
-echo "### DOCKER ###"
-echo
-if [[ -n "$DOCKER_TARGET_USER" && "$DOCKER_TARGET_USER" != "root" ]]; then
-    echo "$DOCKER_TARGET_USER is now in the docker group. You may need to log out and log back in for this to take effect..."
-else
-    echo "Docker group exists. No non-root user was detected to add to it automatically."
-fi
-echo
-echo
+    if ! getent group docker >/dev/null; then
+        groupadd docker
+    fi
 
-tmp_rpm="$(mktemp --suffix=.rpm)"
-trap 'rm -f "$tmp_rpm"' EXIT
+    if [[ -n "$docker_target_user" && "$docker_target_user" != "root" ]]; then
+        usermod -aG docker "$docker_target_user"
+    fi
 
-curl -fL "$DOCKER_DESKTOP_URL" -o "$tmp_rpm"
-set +e
-dnf -y install "$tmp_rpm"
-set -e
+    systemctl enable docker.service
+    systemctl enable containerd.service
 
-echo
-echo "Docker Desktop installed."
-echo "May fail on VMs without nested virtualization support or if running under WSL. Please check the output above for any errors."
-echo
+    echo
+    echo "### DOCKER ###"
+    echo
+    if [[ -n "$docker_target_user" && "$docker_target_user" != "root" ]]; then
+        echo "$docker_target_user is now in the docker group. You may need to log out and log back in for this to take effect..."
+    else
+        echo "Docker group exists. No non-root user was detected to add to it automatically."
+    fi
+    echo
+    echo
 
-dnf install -y \
-    steam \
-    nautilus-python \
-    gnome-tweaks \
-    ghostty
+    tmp_rpm="$(mktemp --suffix=.rpm)"
+    trap 'rm -f "$tmp_rpm"' EXIT
 
+    curl -fL "$docker_desktop_url" -o "$tmp_rpm"
+    set +e
+    dnf -y install "$tmp_rpm"
+    set -e
 
-npm i -g opencode-ai
-npm i -g @openai/codex
-curl -fsSL https://claude.ai/install.sh | bash
+    echo
+    echo "Docker Desktop installed."
+    echo "May fail on VMs without nested virtualization support or if running under WSL. Please check the output above for any errors."
+    echo
+}
+
+install_desktop_apps() {
+    dnf install -y \
+        steam \
+        nautilus-python \
+        gnome-tweaks \
+        ghostty
+}
+
+install_global_tools() {
+    npm i -g opencode-ai
+    npm i -g @openai/codex
+    curl -fsSL https://claude.ai/install.sh | bash
+}
+
+# ---------- System services ----------
+disable_wait_online_service
+
+# ---------- Codec support ----------
+install_openh264_support
+
+# ---------- Remove preinstalled software ----------
+remove_preinstalled_software
+refresh_system_packages
+
+# ---------- Flatpak applications ----------
+install_flatpak_software
+
+# ---------- Developer tooling ----------
+install_github_cli
+install_development_tooling
+
+# ---------- Visual Studio Code ----------
+configure_vscode_repository
+install_vscode
+
+# ---------- Docker Desktop ----------
+install_docker
+
+# ---------- Desktop applications ----------
+install_desktop_apps
+
+# ---------- Global CLI tools ----------
+install_global_tools

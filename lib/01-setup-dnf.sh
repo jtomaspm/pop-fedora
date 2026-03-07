@@ -1,22 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG_DIR="/etc/dnf/libdnf5.conf.d"
-CONFIG_FILE="$CONFIG_DIR/420-pop.conf"
+config_dir="/etc/dnf/libdnf5.conf.d"
+config_file="$config_dir/420-pop.conf"
 
-mkdir -p "$CONFIG_DIR"
+write_dnf_config() {
+    mkdir -p "$config_dir"
 
-tee "$CONFIG_FILE" > /dev/null <<'EOF'
+    tee "$config_file" > /dev/null <<'EOF'
 [main]
 defaultyes=True
 fastestmirror=True
 max_parallel_downloads=10
 EOF
+}
 
-echo "Created $CONFIG_FILE"
-echo
-echo "Contents:"
-cat "$CONFIG_FILE"
+show_dnf_config() {
+    echo "Created $config_file"
+    echo
+    echo "Contents:"
+    cat "$config_file"
+}
 
+# ---------- libdnf5 configuration ----------
+write_dnf_config
+show_dnf_config
+
+# ---------- System updates ----------
 dnf update -y
 dnf upgrade -y
