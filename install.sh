@@ -8,30 +8,93 @@ LIB_DIR=""
 TEMP_DIR=""
 FAILED_STEP=""
 KEEPALIVE_PID=""
+POP_FEDORA_HOSTNAME="${POP_FEDORA_HOSTNAME:-}"
+POP_FEDORA_HOSTNAME_PROMPTED="${POP_FEDORA_HOSTNAME_PROMPTED:-}"
 POP_FEDORA_GIT_USER_NAME="${POP_FEDORA_GIT_USER_NAME:-}"
 POP_FEDORA_GIT_USER_EMAIL="${POP_FEDORA_GIT_USER_EMAIL:-}"
 
 declare -a STEPS=()
 declare -a RUN_STEPS=()
 
-prompt_for_git_config() {
-    if [[ -n "$POP_FEDORA_GIT_USER_NAME" && -n "$POP_FEDORA_GIT_USER_EMAIL" ]]; then
+prompt_for_hostname() {
+    local current_hostname
+
+    if [[ -n "$POP_FEDORA_HOSTNAME_PROMPTED" ]]; then
         return 0
     fi
 
-    if [[ ! -t 0 ]]; then
-        echo "Git user.name and user.email must be provided in an interactive shell." >&2
+    current_hostname="$(hostnamectl --static)"
+
+    echo ""
+    echo "Current hostname: $current_hostname"
+    read -rp "Enter new hostname (leave empty to ignore): " POP_FEDORA_HOSTNAME
+
+    POP_FEDORA_HOSTNAME_PROMPTED="1"
+    export POP_FEDORA_HOSTNAME
+    export POP_FEDORA_HOSTNAME_PROMPTED
+}
+
+set_new_hostname() {
+    if [[ -z "$POP_FEDORA_HOSTNAME" ]]; then
+        return 0
+    fi
+
+    echo "Setting hostname to $POP_FEDORA_HOSTNAME"
+    if [[ "$EUID" -eq 0 ]]; then
+        hostnamectl set-hostname "$POP_FEDORA_HOSTNAME"
+    else
+        sudo hostnamectl set-hostname "$POP_FEDORA_HOSTNAME"
+    fi
+}
+
+git_config_get() {
+    local key
+
+    key="$1"
+
+    if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" ]]; then
+        sudo -u "$SUDO_USER" git config --global --get "$key" 2>/dev/null || true
+        return 0
+    fi
+
+    git config --global --get "$key" 2>/dev/null || true
+}
+
+prompt_for_git_config() {
+    local existing_git_user_name
+    local existing_git_user_email
+    local prompted_git_user_name
+    local prompted_git_user_email
+
+    existing_git_user_name="$(git_config_get user.name)"
+    existing_git_user_email="$(git_config_get user.email)"
+
+    prompted_git_user_name=""
+    prompted_git_user_email=""
+
+    if [[ -z "$existing_git_user_name" ]]; then
+        prompted_git_user_name="${POP_FEDORA_GIT_USER_NAME:-}"
+    fi
+
+    if [[ -z "$existing_git_user_email" ]]; then
+        prompted_git_user_email="${POP_FEDORA_GIT_USER_EMAIL:-}"
+    fi
+
+    if [[ ( -z "$existing_git_user_name" && -z "$prompted_git_user_name" ) || ( -z "$existing_git_user_email" && -z "$prompted_git_user_email" ) ]] && [[ ! -t 0 ]]; then
+        echo "Git user.name and user.email must be provided in an interactive shell when they are not already set." >&2
         return 1
     fi
 
-    while [[ -z "$POP_FEDORA_GIT_USER_NAME" ]]; do
-        read -r -p "Git user.name: " POP_FEDORA_GIT_USER_NAME
+    while [[ -z "$existing_git_user_name" && -z "$prompted_git_user_name" ]]; do
+        read -r -p "Git user.name: " prompted_git_user_name
     done
 
-    while [[ -z "$POP_FEDORA_GIT_USER_EMAIL" ]]; do
-        read -r -p "Git user.email: " POP_FEDORA_GIT_USER_EMAIL
+    while [[ -z "$existing_git_user_email" && -z "$prompted_git_user_email" ]]; do
+        read -r -p "Git user.email: " prompted_git_user_email
     done
 
+    POP_FEDORA_GIT_USER_NAME="$prompted_git_user_name"
+    POP_FEDORA_GIT_USER_EMAIL="$prompted_git_user_email"
     export POP_FEDORA_GIT_USER_NAME
     export POP_FEDORA_GIT_USER_EMAIL
 }
@@ -205,6 +268,7 @@ main() {
     local exit_code
 
     trap cleanup EXIT
+    prompt_for_hostname
     prompt_for_git_config
 
     if REPO_ROOT="$(resolve_repo_root)"; then
@@ -217,6 +281,7 @@ main() {
 
     collect_steps
     ensure_sudo_session
+    set_new_hostname
 
     for step_file in "${STEPS[@]}"; do
         step_number="$(step_number_from_file "$step_file")"
