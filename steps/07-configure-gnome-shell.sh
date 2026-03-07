@@ -55,3 +55,16 @@ fi
 
 pf_log_info "Enabling $EXT..."
 run_user gnome-extensions enable "$EXT"
+
+
+pf_log_section "Configure Gnome Settings"
+run_user gsettings set org.gnome.desktop.wm.preferences resize-with-right-button true
+
+pf_log_info "Applying GNOME power profile"
+run_user gsettings set org.gnome.settings-daemon.plugins.power idle-dim false
+run_user gsettings set org.gnome.settings-daemon.plugins.power power-saver-profile-on-low-battery true
+run_user gsettings set org.gnome.desktop.session idle-delay 0
+run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type 'suspend'
+run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-timeout 900
+run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'nothing'
+run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-timeout 0
