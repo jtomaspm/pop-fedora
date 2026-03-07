@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=lib/logging.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}/logging.sh"
+
 flathub_remote_name="flathub"
 flathub_remote_url="https://dl.flathub.org/repo/flathub.flatpakrepo"
 gearlever_app_id="it.mijorus.gearlever"
@@ -17,11 +20,11 @@ install_flatpak_apps() {
     flatpak install --system -y "$flathub_remote_name" "$gearlever_app_id"
 }
 
-# ---------- Flatpak remotes ----------
+pf_log_section "Configure Flatpak Remotes"
 add_flathub_remote
 
-# ---------- Flatpak support packages ----------
+pf_log_section "Install Flatpak Support Packages"
 install_flatpak_dependencies
 
-# ---------- Flatpak applications ----------
+pf_log_section "Install Flatpak Applications"
 install_flatpak_apps

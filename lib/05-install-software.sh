@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=lib/logging.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}/logging.sh"
+
 disable_wait_online_service() {
     systemctl disable NetworkManager-wait-online.service
 }
@@ -103,16 +106,12 @@ install_docker() {
     systemctl enable docker.service
     systemctl enable containerd.service
 
-    echo
-    echo "### DOCKER ###"
-    echo
+    pf_log_info "Docker service and group configuration complete."
     if [[ -n "$docker_target_user" && "$docker_target_user" != "root" ]]; then
-        echo "$docker_target_user is now in the docker group. You may need to log out and log back in for this to take effect..."
+        pf_log_info "$docker_target_user is now in the docker group. You may need to log out and log back in for this to take effect..."
     else
-        echo "Docker group exists. No non-root user was detected to add to it automatically."
+        pf_log_info "Docker group exists. No non-root user was detected to add to it automatically."
     fi
-    echo
-    echo
 
     tmp_rpm="$(mktemp --suffix=.rpm)"
     trap 'rm -f "$tmp_rpm"' EXIT
@@ -122,10 +121,8 @@ install_docker() {
     dnf -y install "$tmp_rpm"
     set -e
 
-    echo
-    echo "Docker Desktop installed."
-    echo "May fail on VMs without nested virtualization support or if running under WSL. Please check the output above for any errors."
-    echo
+    pf_log_success "Docker Desktop installed."
+    pf_log_info "May fail on VMs without nested virtualization support or if running under WSL. Please check the output above for any errors."
 }
 
 install_desktop_apps() {
@@ -142,32 +139,32 @@ install_global_tools() {
     curl -fsSL https://claude.ai/install.sh | bash
 }
 
-# ---------- System services ----------
+pf_log_section "Configure System Services"
 disable_wait_online_service
 
-# ---------- Codec support ----------
+pf_log_section "Install Codec Support"
 install_openh264_support
 
-# ---------- Remove preinstalled software ----------
+pf_log_section "Remove Preinstalled Software"
 remove_preinstalled_software
 refresh_system_packages
 
-# ---------- Flatpak applications ----------
+pf_log_section "Install Flatpak Applications"
 install_flatpak_software
 
-# ---------- Developer tooling ----------
+pf_log_section "Install Developer Tooling"
 install_github_cli
 install_development_tooling
 
-# ---------- Visual Studio Code ----------
+pf_log_section "Install Visual Studio Code"
 configure_vscode_repository
 install_vscode
 
-# ---------- Docker Desktop ----------
+pf_log_section "Install Docker Desktop"
 install_docker
 
-# ---------- Desktop applications ----------
+pf_log_section "Install Desktop Applications"
 install_desktop_apps
 
-# ---------- Global CLI tools ----------
+pf_log_section "Install Global CLI Tools"
 install_global_tools

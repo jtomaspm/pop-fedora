@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=lib/logging.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}/logging.sh"
+
 refresh_firmware() {
     set +e
     fwupdmgr refresh --force
@@ -17,8 +20,8 @@ install_multimedia_support() {
     dnf group install -y sound-and-video
 }
 
-# ---------- Firmware updates ----------
+pf_log_section "Refresh Firmware"
 refresh_firmware
 
-# ---------- Multimedia drivers and codecs ----------
+pf_log_section "Install Multimedia Drivers and Codecs"
 install_multimedia_support

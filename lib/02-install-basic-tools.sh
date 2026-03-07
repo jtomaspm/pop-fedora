@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=lib/logging.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}/logging.sh"
+
 install_repository_releases() {
     local fedora_version
 
@@ -66,13 +69,13 @@ configure_git() {
     "${git_config_cmd[@]}" pull.rebase false
 }
 
-# ---------- Third-party repositories ----------
+pf_log_section "Enable Third-Party Repositories"
 install_repository_releases
 
-# ---------- Core system packages ----------
+pf_log_section "Install Core System Packages"
 update_core_packages
 install_basic_tools
 install_dnf_plugins
 
-# ---------- Git configuration ----------
+pf_log_section "Configure Git"
 configure_git

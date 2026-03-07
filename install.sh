@@ -2,6 +2,118 @@
 set -euo pipefail
 
 readonly REPO_ARCHIVE_URL="https://github.com/jtomaspm/pop-fedora/archive/refs/heads/main.tar.gz"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+readonly LOGGING_FILE="$SCRIPT_DIR/lib/logging.sh"
+
+if [[ -f "$LOGGING_FILE" ]]; then
+    # shellcheck source=lib/logging.sh
+    source "$LOGGING_FILE"
+else
+    pf_supports_color_on_fd() {
+        local fd
+
+        fd="$1"
+
+        if [[ "${TERM:-}" == "dumb" ]]; then
+            return 1
+        fi
+
+        if [[ "$fd" -eq 1 ]]; then
+            [[ -t 1 ]]
+            return $?
+        fi
+
+        [[ -t 2 ]]
+    }
+
+    pf_stdout_color() {
+        local code
+
+        code="$1"
+
+        if pf_supports_color_on_fd 1; then
+            printf '\033[%sm' "$code"
+        fi
+    }
+
+    pf_stderr_color() {
+        local code
+
+        code="$1"
+
+        if pf_supports_color_on_fd 2; then
+            printf '\033[%sm' "$code"
+        fi
+    }
+
+    pf_log_section() {
+        local title
+        local color_reset
+        local color_title
+
+        title="$1"
+        color_title="$(pf_stdout_color '1;34')"
+        color_reset="$(pf_stdout_color '0')"
+
+        printf '\n%s==>%s %s\n' "$color_title" "$color_reset" "$title"
+    }
+
+    pf_log_info() {
+        local message
+        local color_reset
+        local color_label
+
+        message="$1"
+        color_label="$(pf_stdout_color '1;36')"
+        color_reset="$(pf_stdout_color '0')"
+
+        printf '%s[INFO]%s %s\n' "$color_label" "$color_reset" "$message"
+    }
+
+    pf_log_success() {
+        local message
+        local color_reset
+        local color_label
+
+        message="$1"
+        color_label="$(pf_stdout_color '1;32')"
+        color_reset="$(pf_stdout_color '0')"
+
+        printf '%s[OK]%s %s\n' "$color_label" "$color_reset" "$message"
+    }
+
+    pf_log_warning() {
+        local message
+        local color_reset
+        local color_label
+
+        message="$1"
+        color_label="$(pf_stderr_color '1;33')"
+        color_reset="$(pf_stderr_color '0')"
+
+        printf '%s[WARN]%s %s\n' "$color_label" "$color_reset" "$message" >&2
+    }
+
+    pf_log_error() {
+        local message
+        local color_reset
+        local color_label
+
+        message="$1"
+        color_label="$(pf_stderr_color '1;31')"
+        color_reset="$(pf_stderr_color '0')"
+
+        printf '%s[ERR ]%s %s\n' "$color_label" "$color_reset" "$message" >&2
+    }
+
+    pf_log_list_item() {
+        local message
+
+        message="$1"
+
+        printf '  - %s\n' "$message"
+    }
+fi
 
 REPO_ROOT=""
 LIB_DIR=""
@@ -25,8 +137,8 @@ prompt_for_hostname() {
 
     current_hostname="$(hostnamectl --static)"
 
-    echo ""
-    echo "Current hostname: $current_hostname"
+    pf_log_section "Hostname"
+    pf_log_info "Current hostname: $current_hostname"
     read -rp "Enter new hostname (leave empty to ignore): " POP_FEDORA_HOSTNAME
 
     POP_FEDORA_HOSTNAME_PROMPTED="1"
@@ -39,7 +151,8 @@ set_new_hostname() {
         return 0
     fi
 
-    echo "Setting hostname to $POP_FEDORA_HOSTNAME"
+    pf_log_section "Hostname"
+    pf_log_info "Setting hostname to $POP_FEDORA_HOSTNAME"
     if [[ "$EUID" -eq 0 ]]; then
         hostnamectl set-hostname "$POP_FEDORA_HOSTNAME"
     else
@@ -81,8 +194,12 @@ prompt_for_git_config() {
     fi
 
     if [[ ( -z "$existing_git_user_name" && -z "$prompted_git_user_name" ) || ( -z "$existing_git_user_email" && -z "$prompted_git_user_email" ) ]] && [[ ! -t 0 ]]; then
-        echo "Git user.name and user.email must be provided in an interactive shell when they are not already set." >&2
+        pf_log_error "Git user.name and user.email must be provided in an interactive shell when they are not already set."
         return 1
+    fi
+
+    if [[ -z "$existing_git_user_name" || -z "$existing_git_user_email" ]]; then
+        pf_log_section "Git Configuration"
     fi
 
     while [[ -z "$existing_git_user_name" && -z "$prompted_git_user_name" ]]; do
@@ -130,14 +247,15 @@ prepare_bootstrap_repo() {
     TEMP_DIR="$(mktemp -d)"
     archive_path="$TEMP_DIR/repo.tar.gz"
 
-    echo "Bootstrapping jtomaspm/pop-fedora@main"
+    pf_log_section "Bootstrap"
+    pf_log_info "Bootstrapping jtomaspm/pop-fedora@main"
     wget -qO "$archive_path" "$REPO_ARCHIVE_URL"
     tar -xzf "$archive_path" -C "$TEMP_DIR"
 
     extracted_dir="$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
 
     if [[ -z "$extracted_dir" ]]; then
-        echo "Failed to extract the repository archive." >&2
+        pf_log_error "Failed to extract the repository archive."
         return 1
     fi
 
@@ -145,7 +263,7 @@ prepare_bootstrap_repo() {
     LIB_DIR="$REPO_ROOT/lib"
 
     if [[ ! -f "$REPO_ROOT/install.sh" || ! -d "$LIB_DIR" ]]; then
-        echo "Failed to prepare a temporary checkout of the repository." >&2
+        pf_log_error "Failed to prepare a temporary checkout of the repository."
         return 1
     fi
 }
@@ -154,7 +272,7 @@ collect_steps() {
     mapfile -t STEPS < <(find "$LIB_DIR" -maxdepth 1 -type f -name '*.sh' | sort)
 
     if [[ "${#STEPS[@]}" -eq 0 ]]; then
-        echo "No installer steps were found in $LIB_DIR" >&2
+        pf_log_error "No installer steps were found in $LIB_DIR"
         return 1
     fi
 }
@@ -202,7 +320,8 @@ ensure_sudo_session() {
         return 0
     fi
 
-    echo "Authenticating sudo access"
+    pf_log_section "Privileges"
+    pf_log_info "Authenticating sudo access"
     sudo -v
 
     while true; do
@@ -230,8 +349,8 @@ run_step() {
     export POP_FEDORA_GIT_USER_NAME
     export POP_FEDORA_GIT_USER_EMAIL
 
-    echo
-    echo "Running [$step_number] $step_name"
+    pf_log_section "Step [$step_number]"
+    pf_log_info "$step_name"
     if [[ "$EUID" -eq 0 ]]; then
         bash "$step_file"
         return 0
@@ -244,21 +363,23 @@ run_step() {
 print_summary() {
     local entry
 
-    echo
-    echo "Summary"
+    pf_log_section "Summary"
 
     if [[ "${#RUN_STEPS[@]}" -eq 0 ]]; then
-        echo "Ran: none"
+        pf_log_info "Ran: none"
     else
-        echo "Ran:"
+        pf_log_info "Completed steps:"
         for entry in "${RUN_STEPS[@]}"; do
-            echo "  $entry"
+            pf_log_list_item "$entry"
         done
     fi
 
     if [[ -n "$FAILED_STEP" ]]; then
-        echo "Failed: $FAILED_STEP"
+        pf_log_error "Failed: $FAILED_STEP"
+        return 0
     fi
+
+    pf_log_success "All requested steps completed."
 }
 
 main() {
@@ -271,8 +392,10 @@ main() {
     prompt_for_hostname
     prompt_for_git_config
 
+    pf_log_section "Repository"
     if REPO_ROOT="$(resolve_repo_root)"; then
         LIB_DIR="$REPO_ROOT/lib"
+        pf_log_info "Using local checkout at $REPO_ROOT"
     else
         prepare_bootstrap_repo
         bash "$REPO_ROOT/install.sh" "$@"
@@ -288,10 +411,11 @@ main() {
         step_description="$(describe_step "$step_file")"
         if run_step "$step_file"; then
             RUN_STEPS+=("[$step_number] $step_description")
+            pf_log_success "Completed [$step_number] $step_description"
         else
             exit_code=$?
             FAILED_STEP="[$step_number] $step_description"
-            echo "Step failed: $FAILED_STEP" >&2
+            pf_log_error "Step failed: $FAILED_STEP"
             print_summary
             return "$exit_code"
         fi
