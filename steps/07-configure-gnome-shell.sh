@@ -27,6 +27,26 @@ run_user() {
         "$@"
 }
 
+enable_extension() {
+    local EXT="$1"
+
+    pf_log_info "Waiting for GNOME to detect $EXT..."
+
+    for i in {1..10}; do
+        if run_user gnome-extensions info "$EXT" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+
+    if ! run_user gnome-extensions list --enabled | grep -q "$EXT"; then
+        pf_log_info "Enabling $EXT..."
+        run_user gnome-extensions enable "$EXT"
+    else
+        pf_log_info "$EXT already enabled"
+    fi
+}
+
 pf_log_section "Configure Dash Favorites"
 run_user gsettings set org.gnome.shell favorite-apps "[
 'app.zen_browser.zen.desktop',
@@ -45,17 +65,8 @@ run_user gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
 
 pf_log_section "Configure AppIndicator Extension"
 EXT="appindicatorsupport@rgcjonas.gmail.com"
-
-if run_user gnome-extensions list | grep -q "$EXT"; then
-    pf_log_info "Extension $EXT already installed."
-else
-    pf_log_info "Installing $EXT..."
-    dnf install -y gnome-shell-extension-appindicator
-fi
-
-pf_log_info "Enabling $EXT..."
-run_user gnome-extensions enable "$EXT"
-
+dnf install -y gnome-shell-extension-appindicator
+enable_extension "$EXT"
 
 pf_log_section "Configure Gnome Settings"
 run_user gsettings set org.gnome.desktop.wm.preferences resize-with-right-button true
@@ -113,4 +124,3 @@ run_user gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-left
 run_user gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-right "['<Super>Page_Down', '<Super>KP_Next', '<Super><Alt>Right', '<Control><Alt>Right', '<Super>s']"
 
 run_user gsettings set org.gnome.shell.keybindings toggle-overview "['<Super>w']"
-
