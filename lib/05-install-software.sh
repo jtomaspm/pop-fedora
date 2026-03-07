@@ -40,16 +40,11 @@ dnf install -y \
     pip3 \
     golang
 
+set +e
 rpm --import https://packages.microsoft.com/keys/microsoft.asc
 echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null
-set +e
 dnf check-update
-dnf_check_update_exit_code=$?
 set -e
-
-if [[ "$dnf_check_update_exit_code" -ne 0 && "$dnf_check_update_exit_code" -ne 100 ]]; then
-    exit "$dnf_check_update_exit_code"
-fi
 
 dnf install code -y
 
