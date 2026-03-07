@@ -7,18 +7,29 @@ dnf install -y openh264 gstreamer1-plugin-openh264 mozilla-openh264
 dnf config-manager setopt fedora-cisco-openh264.enabled=1
 
 dnf remove -y \
-    firefox
-
-flatpak install --system -y flathub app.zen_browser.zen
+    firefox \
+    ptyxis \
+    libreoffice-writer \
+    libreoffice-calc \
+    libreoffice-impress \
+    libreoffice-core
 
 dnf autoremove -y
-
 dnf clean all
-
 dnf update -y
 dnf upgrade -y
 
+flatpak install --system -y flathub app.zen_browser.zen
+flatpak install --system -y flathub com.stremio.Stremio
+flatpak install --system -y flathub com.mattjakeman.ExtensionManager
+flatpak install --system -y flathub com.vysp3r.ProtonPlus
+flatpak install --system -y flathub org.onlyoffice.desktopeditors
+
+dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo -y
+dnf install gh --repo gh-cli -y
+
 dnf install -y \
+    zsh \
     rust \
     cargo \
     dotnet-sdk-10.0 \
@@ -42,7 +53,6 @@ DOCKER_DESKTOP_URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-x
 DOCKER_TARGET_USER="${SUDO_USER:-${USER:-}}"
 
 # Docker repo is required by Docker Desktop on Fedora.
-dnf -y install dnf-plugins-core
 dnf config-manager addrepo --overwrite --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
 
 dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
@@ -82,3 +92,9 @@ echo
 echo "Docker Desktop installed."
 echo "May fail on VMs without nested virtualization support or if running under WSL. Please check the output above for any errors."
 echo
+
+dnf install -y \
+    steam \
+    nautilus-python \
+    ghostty
+

@@ -26,17 +26,18 @@ configure_git() {
 }
 
 dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
+dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release -y
 dnf update -y
 dnf upgrade -y
 dnf group upgrade core -y
 dnf4 group install core -y
+
 
 dnf install -y \
     git \
     curl \
     wget \
     tree \
-    gh \
     fzf \
     rg \
     neovim \
@@ -44,5 +45,7 @@ dnf install -y \
     unzip \
     tar \
     xz
+
+dnf install dnf5-plugins dnf-plugins-core -y
 
 configure_git
