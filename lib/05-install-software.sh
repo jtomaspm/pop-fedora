@@ -100,6 +100,7 @@ echo
 dnf install -y \
     steam \
     nautilus-python \
+    gnome-tweaks \
     ghostty
 
 

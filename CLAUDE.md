@@ -36,7 +36,7 @@ There are no tests, build steps, or linters.
 | `04-setup-flatpak.sh` | Adds Flathub remotes (system + user), installs Gear Lever |
 | `05-install-software.sh` | Installs dev runtimes (Rust, Go, Node, Python, .NET), removes Firefox, installs Zen Browser via Flatpak, installs Docker Desktop |
 | `06-install-config.sh` | Placeholder |
-| `07-install-themes.sh` | Placeholder |
+| `07-configure-gnome-shell.sh` | Applies GNOME Shell user settings such as favorite apps for the invoking desktop user |
 | `08-setup-accounts.sh` | Placeholder |
 
 ## Conventions
