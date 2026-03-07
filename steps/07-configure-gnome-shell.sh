@@ -69,3 +69,10 @@ run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ba
 run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-timeout 900
 run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'nothing'
 run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-timeout 0
+
+pf_log_info "Setting keyboard shortcuts"
+run_user gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings \
+    "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-file-manager/']"
+run_user gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-file-manager/ name "FileManager"
+run_user gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-file-manager/ command "nautilus --new-window"
+run_user gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-file-manager/ binding "<Super>e"
