@@ -3,117 +3,30 @@ set -euo pipefail
 
 readonly REPO_ARCHIVE_URL="https://github.com/jtomaspm/pop-fedora/archive/refs/heads/main.tar.gz"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-readonly LOGGING_FILE="$SCRIPT_DIR/lib/logging.sh"
 
-if [[ -f "$LOGGING_FILE" ]]; then
-    # shellcheck source=lib/logging.sh
-    source "$LOGGING_FILE"
-else
-    pf_supports_color_on_fd() {
-        local fd
+bootstrap_log_section() {
+    local title
 
-        fd="$1"
+    title="$1"
 
-        if [[ "${TERM:-}" == "dumb" ]]; then
-            return 1
-        fi
+    printf '\n==> %s\n' "$title"
+}
 
-        if [[ "$fd" -eq 1 ]]; then
-            [[ -t 1 ]]
-            return $?
-        fi
+bootstrap_log_info() {
+    local message
 
-        [[ -t 2 ]]
-    }
+    message="$1"
 
-    pf_stdout_color() {
-        local code
+    printf '[INFO] %s\n' "$message"
+}
 
-        code="$1"
+bootstrap_log_error() {
+    local message
 
-        if pf_supports_color_on_fd 1; then
-            printf '\033[%sm' "$code"
-        fi
-    }
+    message="$1"
 
-    pf_stderr_color() {
-        local code
-
-        code="$1"
-
-        if pf_supports_color_on_fd 2; then
-            printf '\033[%sm' "$code"
-        fi
-    }
-
-    pf_log_section() {
-        local title
-        local color_reset
-        local color_title
-
-        title="$1"
-        color_title="$(pf_stdout_color '1;34')"
-        color_reset="$(pf_stdout_color '0')"
-
-        printf '\n%s==>%s %s\n' "$color_title" "$color_reset" "$title"
-    }
-
-    pf_log_info() {
-        local message
-        local color_reset
-        local color_label
-
-        message="$1"
-        color_label="$(pf_stdout_color '1;36')"
-        color_reset="$(pf_stdout_color '0')"
-
-        printf '%s[INFO]%s %s\n' "$color_label" "$color_reset" "$message"
-    }
-
-    pf_log_success() {
-        local message
-        local color_reset
-        local color_label
-
-        message="$1"
-        color_label="$(pf_stdout_color '1;32')"
-        color_reset="$(pf_stdout_color '0')"
-
-        printf '%s[OK]%s %s\n' "$color_label" "$color_reset" "$message"
-    }
-
-    pf_log_warning() {
-        local message
-        local color_reset
-        local color_label
-
-        message="$1"
-        color_label="$(pf_stderr_color '1;33')"
-        color_reset="$(pf_stderr_color '0')"
-
-        printf '%s[WARN]%s %s\n' "$color_label" "$color_reset" "$message" >&2
-    }
-
-    pf_log_error() {
-        local message
-        local color_reset
-        local color_label
-
-        message="$1"
-        color_label="$(pf_stderr_color '1;31')"
-        color_reset="$(pf_stderr_color '0')"
-
-        printf '%s[ERR ]%s %s\n' "$color_label" "$color_reset" "$message" >&2
-    }
-
-    pf_log_list_item() {
-        local message
-
-        message="$1"
-
-        printf '  - %s\n' "$message"
-    }
-fi
+    printf '[ERROR] %s\n' "$message" >&2
+}
 
 REPO_ROOT=""
 LIB_DIR=""
@@ -234,7 +147,7 @@ resolve_repo_root() {
 
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
-    if [[ -f "$script_dir/install.sh" && -d "$script_dir/lib" && -d "$script_dir/steps" ]]; then
+    if [[ -f "$script_dir/install.sh" && -f "$script_dir/lib/logging.sh" && -d "$script_dir/lib" && -d "$script_dir/steps" ]]; then
         printf '%s\n' "$script_dir"
         return 0
     fi
@@ -249,15 +162,15 @@ prepare_bootstrap_repo() {
     TEMP_DIR="$(mktemp -d)"
     archive_path="$TEMP_DIR/repo.tar.gz"
 
-    pf_log_section "Bootstrap"
-    pf_log_info "Bootstrapping jtomaspm/pop-fedora@main"
+    bootstrap_log_section "Bootstrap"
+    bootstrap_log_info "Bootstrapping jtomaspm/pop-fedora@main"
     wget -qO "$archive_path" "$REPO_ARCHIVE_URL"
     tar -xzf "$archive_path" -C "$TEMP_DIR"
 
     extracted_dir="$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
 
     if [[ -z "$extracted_dir" ]]; then
-        pf_log_error "Failed to extract the repository archive."
+        bootstrap_log_error "Failed to extract the repository archive."
         return 1
     fi
 
@@ -265,8 +178,8 @@ prepare_bootstrap_repo() {
     LIB_DIR="$REPO_ROOT/lib"
     STEPS_DIR="$REPO_ROOT/steps"
 
-    if [[ ! -f "$REPO_ROOT/install.sh" || ! -d "$LIB_DIR" || ! -d "$STEPS_DIR" ]]; then
-        pf_log_error "Failed to prepare a temporary checkout of the repository."
+    if [[ ! -f "$REPO_ROOT/install.sh" || ! -f "$LIB_DIR/logging.sh" || ! -d "$LIB_DIR" || ! -d "$STEPS_DIR" ]]; then
+        bootstrap_log_error "Failed to prepare a temporary checkout of the repository."
         return 1
     fi
 }
@@ -467,14 +380,17 @@ main() {
     local step_number
     local step_description
     local exit_code
+    local logging_file
 
     trap cleanup EXIT
-    parse_args "$@"
 
-    pf_log_section "Repository"
     if REPO_ROOT="$(resolve_repo_root)"; then
         LIB_DIR="$REPO_ROOT/lib"
         STEPS_DIR="$REPO_ROOT/steps"
+        logging_file="$LIB_DIR/logging.sh"
+        # shellcheck source=lib/logging.sh
+        source "$logging_file"
+        pf_log_section "Repository"
         pf_log_info "Using local checkout at $REPO_ROOT"
     else
         prepare_bootstrap_repo
@@ -482,6 +398,7 @@ main() {
         return $?
     fi
 
+    parse_args "$@"
     collect_steps
     filter_requested_steps
     prompt_for_hostname

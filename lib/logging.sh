@@ -2,21 +2,12 @@ if [[ -z "${POP_FEDORA_LOGGING_SH:-}" ]]; then
     POP_FEDORA_LOGGING_SH=1
     readonly POP_FEDORA_LOGGING_SH
 
-    pf_supports_color_on_fd() {
-        local fd
+    pf_color() {
+        local code
 
-        fd="$1"
+        code="$1"
 
-        if [[ "${TERM:-}" == "dumb" ]]; then
-            return 1
-        fi
-
-        if [[ "$fd" -eq 1 ]]; then
-            [[ -t 1 ]]
-            return $?
-        fi
-
-        [[ -t 2 ]]
+        printf '\033[%sm' "$code"
     }
 
     pf_stdout_color() {
@@ -24,9 +15,7 @@ if [[ -z "${POP_FEDORA_LOGGING_SH:-}" ]]; then
 
         code="$1"
 
-        if pf_supports_color_on_fd 1; then
-            printf '\033[%sm' "$code"
-        fi
+        pf_color "$code"
     }
 
     pf_stderr_color() {
@@ -34,9 +23,7 @@ if [[ -z "${POP_FEDORA_LOGGING_SH:-}" ]]; then
 
         code="$1"
 
-        if pf_supports_color_on_fd 2; then
-            printf '\033[%sm' "$code"
-        fi
+        pf_color "$code"
     }
 
     pf_log_section() {
@@ -48,7 +35,7 @@ if [[ -z "${POP_FEDORA_LOGGING_SH:-}" ]]; then
         color_title="$(pf_stdout_color '1;34')"
         color_reset="$(pf_stdout_color '0')"
 
-        printf '\n%s==>%s %s\n' "$color_title" "$color_reset" "$title"
+        printf '\n%s📍 SECTION%s %s\n' "$color_title" "$color_reset" "$title"
     }
 
     pf_log_info() {
@@ -60,7 +47,7 @@ if [[ -z "${POP_FEDORA_LOGGING_SH:-}" ]]; then
         color_label="$(pf_stdout_color '1;36')"
         color_reset="$(pf_stdout_color '0')"
 
-        printf '%s[INFO]%s %s\n' "$color_label" "$color_reset" "$message"
+        printf '%sℹ️  INFO%s %s\n' "$color_label" "$color_reset" "$message"
     }
 
     pf_log_success() {
@@ -72,7 +59,7 @@ if [[ -z "${POP_FEDORA_LOGGING_SH:-}" ]]; then
         color_label="$(pf_stdout_color '1;32')"
         color_reset="$(pf_stdout_color '0')"
 
-        printf '%s[OK]%s %s\n' "$color_label" "$color_reset" "$message"
+        printf '%s✅ OK%s %s\n' "$color_label" "$color_reset" "$message"
     }
 
     pf_log_warning() {
@@ -84,7 +71,7 @@ if [[ -z "${POP_FEDORA_LOGGING_SH:-}" ]]; then
         color_label="$(pf_stderr_color '1;33')"
         color_reset="$(pf_stderr_color '0')"
 
-        printf '%s[WARN]%s %s\n' "$color_label" "$color_reset" "$message" >&2
+        printf '%s⚠️  WARN%s %s\n' "$color_label" "$color_reset" "$message" >&2
     }
 
     pf_log_error() {
@@ -96,14 +83,18 @@ if [[ -z "${POP_FEDORA_LOGGING_SH:-}" ]]; then
         color_label="$(pf_stderr_color '1;31')"
         color_reset="$(pf_stderr_color '0')"
 
-        printf '%s[ERR ]%s %s\n' "$color_label" "$color_reset" "$message" >&2
+        printf '%s❌ ERROR%s %s\n' "$color_label" "$color_reset" "$message" >&2
     }
 
     pf_log_list_item() {
         local message
+        local color_bullet
+        local color_reset
 
         message="$1"
+        color_bullet="$(pf_stdout_color '1;35')"
+        color_reset="$(pf_stdout_color '0')"
 
-        printf '  - %s\n' "$message"
+        printf '  %s🔹%s %s\n' "$color_bullet" "$color_reset" "$message"
     }
 fi
