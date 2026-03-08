@@ -27,24 +27,93 @@ run_user() {
         "$@"
 }
 
-enable_extension() {
-    local EXT="$1"
+gnome_shell_extensions_call() {
+    local method="$1"
+    shift
 
-    pf_log_info "Waiting for GNOME to detect $EXT..."
+    # Probe failures are handled by the caller so the installer can continue.
+    run_user gdbus call \
+        --session \
+        --dest org.gnome.Shell \
+        --object-path /org/gnome/Shell \
+        --method "org.gnome.Shell.Extensions.$method" \
+        "$@"
+}
 
-    for i in {1..10}; do
-        if run_user gnome-extensions info "$EXT" >/dev/null 2>&1; then
-            break
+extension_is_registered() {
+    local extension_uuid="$1"
+    local output
+
+    if ! output="$(gnome_shell_extensions_call ListExtensions 2>/dev/null)"; then
+        return 1
+    fi
+
+    grep -Fq "$extension_uuid" <<<"$output"
+}
+
+extension_is_enabled() {
+    local extension_uuid="$1"
+    local output
+
+    if ! output="$(gnome_shell_extensions_call GetExtensionInfo "$extension_uuid" 2>/dev/null)"; then
+        return 1
+    fi
+
+    grep -Eq "'state': <1(\\.0+)?>" <<<"$output"
+}
+
+wait_for_extension_registration() {
+    local extension_uuid="$1"
+    local attempt
+
+    # RPM installation can finish before the live GNOME Shell session notices the extension.
+    pf_log_info "Waiting for GNOME to detect $extension_uuid..."
+
+    for ((attempt = 1; attempt <= 30; attempt++)); do
+        if extension_is_registered "$extension_uuid"; then
+            return 0
         fi
+
         sleep 1
     done
 
-    if ! run_user gnome-extensions list --enabled | grep -q "$EXT"; then
-        pf_log_info "Enabling $EXT..."
-        run_user gnome-extensions enable "$EXT"
-    else
-        pf_log_info "$EXT already enabled"
+    return 1
+}
+
+enable_extension_live() {
+    local extension_uuid="$1"
+    local output
+    local not_registered_warning="Installed $extension_uuid but GNOME Shell did not register it in the current session. It should be available after the next login."
+    local enable_failed_warning="Installed $extension_uuid but could not enable it in the current session. It should be available after the next login."
+
+    if extension_is_enabled "$extension_uuid"; then
+        pf_log_info "$extension_uuid already enabled"
+        return 0
     fi
+
+    if ! wait_for_extension_registration "$extension_uuid"; then
+        pf_log_warning "$not_registered_warning"
+        return 0
+    fi
+
+    if extension_is_enabled "$extension_uuid"; then
+        pf_log_info "$extension_uuid already enabled"
+        return 0
+    fi
+
+    pf_log_info "Enabling $extension_uuid..."
+
+    if ! output="$(gnome_shell_extensions_call EnableExtension "$extension_uuid" 2>/dev/null)"; then
+        pf_log_warning "$enable_failed_warning"
+        return 0
+    fi
+
+    if grep -Fq "true" <<<"$output" || extension_is_enabled "$extension_uuid"; then
+        return 0
+    fi
+
+    pf_log_warning "$enable_failed_warning"
+    return 0
 }
 
 pf_log_section "Configure Dash Favorites"
@@ -66,7 +135,7 @@ run_user gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
 pf_log_section "Configure AppIndicator Extension"
 EXT="appindicatorsupport@rgcjonas.gmail.com"
 dnf install -y gnome-shell-extension-appindicator
-enable_extension "$EXT"
+enable_extension_live "$EXT"
 
 pf_log_section "Configure Gnome Settings"
 run_user gsettings set org.gnome.desktop.wm.preferences resize-with-right-button true
