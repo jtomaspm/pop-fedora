@@ -127,6 +127,7 @@ POP_FEDORA_GIT_USER_NAME="${POP_FEDORA_GIT_USER_NAME:-}"
 POP_FEDORA_GIT_USER_EMAIL="${POP_FEDORA_GIT_USER_EMAIL:-}"
 
 declare -a STEPS=()
+declare -a REQUESTED_STEP_NUMBERS=()
 declare -a RUN_STEPS=()
 
 prompt_for_hostname() {
@@ -279,6 +280,82 @@ collect_steps() {
     fi
 }
 
+parse_args() {
+    local step_flag
+    local raw_step
+
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            --steps|-s)
+                step_flag="$1"
+                shift
+
+                if [[ "$#" -eq 0 ]]; then
+                    pf_log_error "$step_flag requires at least one step number."
+                    return 1
+                fi
+
+                while [[ "$#" -gt 0 ]]; do
+                    raw_step="$1"
+
+                    if [[ ! "$raw_step" =~ ^[0-9]+$ ]]; then
+                        pf_log_error "Invalid step number: $raw_step"
+                        return 1
+                    fi
+
+                    REQUESTED_STEP_NUMBERS+=("$(printf '%02d' "$((10#$raw_step))")")
+                    shift
+                done
+                ;;
+            *)
+                pf_log_error "Unknown argument: $1"
+                return 1
+                ;;
+        esac
+    done
+}
+
+filter_requested_steps() {
+    local step_file
+    local step_number
+    local missing_steps=()
+    local filtered_steps=()
+    local requested_step
+    local missing_display
+    local -A requested_lookup=()
+    local -A found_lookup=()
+
+    if [[ "${#REQUESTED_STEP_NUMBERS[@]}" -eq 0 ]]; then
+        return 0
+    fi
+
+    for requested_step in "${REQUESTED_STEP_NUMBERS[@]}"; do
+        requested_lookup["$requested_step"]=1
+    done
+
+    for step_file in "${STEPS[@]}"; do
+        step_number="$(step_number_from_file "$step_file")"
+        if [[ -n "${requested_lookup[$step_number]:-}" ]]; then
+            filtered_steps+=("$step_file")
+            found_lookup["$step_number"]=1
+        fi
+    done
+
+    for requested_step in "${REQUESTED_STEP_NUMBERS[@]}"; do
+        if [[ -z "${found_lookup[$requested_step]:-}" ]]; then
+            missing_steps+=("$requested_step")
+        fi
+    done
+
+    if [[ "${#missing_steps[@]}" -gt 0 ]]; then
+        printf -v missing_display '%s ' "${missing_steps[@]}"
+        pf_log_error "Unknown step number(s): ${missing_display% }"
+        return 1
+    fi
+
+    STEPS=("${filtered_steps[@]}")
+}
+
 step_number_from_file() {
     local step_file
     local step_base
@@ -392,8 +469,7 @@ main() {
     local exit_code
 
     trap cleanup EXIT
-    prompt_for_hostname
-    prompt_for_git_config
+    parse_args "$@"
 
     pf_log_section "Repository"
     if REPO_ROOT="$(resolve_repo_root)"; then
@@ -407,6 +483,9 @@ main() {
     fi
 
     collect_steps
+    filter_requested_steps
+    prompt_for_hostname
+    prompt_for_git_config
     ensure_sudo_session
     set_new_hostname
 
