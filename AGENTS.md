@@ -168,3 +168,4 @@ source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pw
 3. Run `bash -n` on every changed script.
 4. If behavior must be exercised, run only the affected step on a disposable Fedora environment.
 5. Summarize the system-level impact of the change in the final response.
+6. Create a commit explaining what was changed in the message
