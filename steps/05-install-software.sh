@@ -57,6 +57,40 @@ install_development_tooling() {
         golang
 }
 
+configure_default_shell() {
+    local target_user
+    local zsh_path
+    local passwd_entry
+    local current_shell
+
+    target_user="${SUDO_USER:-${USER:-}}"
+
+    if [[ -z "$target_user" ]]; then
+        pf_log_warning "Skipping default shell configuration: no target user was detected."
+        return 0
+    fi
+
+    if ! zsh_path="$(command -v zsh)"; then
+        pf_log_error "Unable to configure the default shell: zsh was not found after installation."
+        return 1
+    fi
+
+    if ! passwd_entry="$(getent passwd "$target_user")"; then
+        pf_log_error "Unable to configure the default shell: user $target_user was not found."
+        return 1
+    fi
+
+    current_shell="${passwd_entry##*:}"
+
+    if [[ "$current_shell" == "$zsh_path" ]]; then
+        pf_log_info "$target_user already uses $zsh_path as the default shell."
+        return 0
+    fi
+
+    usermod -s "$zsh_path" "$target_user"
+    pf_log_success "Default shell for $target_user set to $zsh_path."
+}
+
 configure_vscode_repository() {
     local vscode_key_url
     local vscode_repo_file
@@ -155,6 +189,7 @@ install_flatpak_software
 pf_log_section "Install Developer Tooling"
 install_github_cli
 install_development_tooling
+configure_default_shell
 
 pf_log_section "Install Visual Studio Code"
 configure_vscode_repository
