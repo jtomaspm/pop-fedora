@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# default programs
+export EDITOR="nvim"
+export TERM="ghostty"
+export TERMINAL="ghostty"
+# export DISPLAY=:0 # useful for some scripts
+
+# follow XDG base dir specification
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_DATA_HOME="$HOME/.local/share"
+export XDG_CACHE_HOME="$HOME/.cache"
+
+# add scripts to path
+export PATH="$XDG_CONFIG_HOME/scripts:$PATH"

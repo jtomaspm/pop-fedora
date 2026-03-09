@@ -47,6 +47,8 @@ install_github_cli() {
 install_development_tooling() {
     dnf install -y \
         zsh \
+        zsh-autosuggestions \
+        zsh-syntax-highlighting \
         rust \
         cargo \
         dotnet-sdk-10.0 \
