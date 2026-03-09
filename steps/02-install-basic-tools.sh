@@ -17,6 +17,12 @@ install_repository_releases_commands() {
         "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${fedora_version}.noarch.rpm" \
         "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${fedora_version}.noarch.rpm" \
         -y
+
+    if rpm -q terra-release >/dev/null 2>&1; then
+        pf_log_info "terra-release is already installed."
+        return 0
+    fi
+
     pf_retry_command dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release -y
 }
 
