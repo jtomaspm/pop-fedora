@@ -82,8 +82,57 @@ if [[ -z "${POP_FEDORA_PACKAGES_SH:-}" ]]; then
     }
 
     pf_dnf_refresh_system() {
-        pf_retry_command dnf update -y
-        pf_retry_command dnf upgrade -y
+        local attempt
+        local attempts
+        local delay_seconds
+        local errexit_was_set
+        local exit_code
+
+        attempts="${POP_FEDORA_RETRY_ATTEMPTS:-$POP_FEDORA_RETRY_ATTEMPTS_DEFAULT}"
+        delay_seconds="${POP_FEDORA_RETRY_DELAY_SECONDS:-$POP_FEDORA_RETRY_DELAY_SECONDS_DEFAULT}"
+        attempt=1
+
+        while true; do
+            pf_log_info "Refreshing DNF metadata and applying system updates (attempt $attempt/$attempts)"
+
+            errexit_was_set=0
+            if [[ $- == *e* ]]; then
+                errexit_was_set=1
+            fi
+
+            set +e
+            dnf clean metadata &&
+                dnf makecache --refresh &&
+                dnf update -y &&
+                dnf upgrade -y
+            exit_code=$?
+            if (( errexit_was_set )); then
+                set -e
+            fi
+
+            if (( exit_code == 0 )); then
+                if (( attempt > 1 )); then
+                    pf_log_success "DNF refresh recovered on attempt $attempt/$attempts"
+                fi
+
+                return 0
+            fi
+
+            if (( attempt >= attempts )); then
+                pf_log_error "DNF refresh failed after $attempts attempt(s), even after metadata and cache recovery."
+                return 1
+            fi
+
+            pf_log_warning "DNF refresh failed on attempt $attempt/$attempts. Cleaning metadata and rebuilding the libdnf5 cache before retrying."
+
+            # Corrupted or stale libdnf5 metadata can survive a normal retry, so clear the cache before trying again.
+            dnf clean all || true
+            rm -rf /var/cache/libdnf5/* || true
+
+            pf_log_info "Retrying in ${delay_seconds}s..."
+            sleep "$delay_seconds"
+            attempt=$((attempt + 1))
+        done
     }
 
     pf_run_best_effort() {
