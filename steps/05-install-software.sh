@@ -172,10 +172,43 @@ install_desktop_apps() {
         ghostty
 }
 
+install_claude_code() {
+    local target_user
+    local target_home
+
+    if ! target_user="$(pf_user_require_for_action_or_warn "Skipping Claude Code installation: no non-root target user was detected.")"; then
+        return 0
+    fi
+
+    if ! target_home="$(pf_user_get_passwd_field "$target_user" home)"; then
+        pf_log_error "Unable to install Claude Code: home directory for $target_user could not be resolved."
+        return 1
+    fi
+
+    pf_log_info "Installing Claude Code for $target_user."
+
+    if [[ "$EUID" -eq 0 ]]; then
+        sudo -u "$target_user" env \
+            HOME="$target_home" \
+            USER="$target_user" \
+            LOGNAME="$target_user" \
+            bash -lc 'curl -fsSL https://claude.ai/install.sh | bash'
+    else
+        env \
+            HOME="$target_home" \
+            USER="$target_user" \
+            LOGNAME="$target_user" \
+            bash -lc 'curl -fsSL https://claude.ai/install.sh | bash'
+    fi
+
+    pf_log_success "Claude Code installed for $target_user."
+    pf_log_info "Claude Code will be available in a new shell after ~/.local/bin is added to PATH."
+}
+
 install_global_tools() {
     npm i -g opencode-ai
     npm i -g @openai/codex
-    curl -fsSL https://claude.ai/install.sh | bash
+    install_claude_code
 }
 
 pf_log_section "Configure System Services"

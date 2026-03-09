@@ -12,4 +12,4 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
 
 # add scripts to path
-export PATH="$XDG_CONFIG_HOME/scripts:$PATH"
+export PATH="$XDG_CONFIG_HOME/scripts:$HOME/.local/bin:$PATH"
