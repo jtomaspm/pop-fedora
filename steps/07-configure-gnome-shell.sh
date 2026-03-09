@@ -26,8 +26,22 @@ run_user() {
 }
 
 readonly GNOME_SHELL_SCHEMA="org.gnome.shell"
+readonly GNOME_SHELL_BUS_NAME="org.gnome.Shell"
+readonly GNOME_SHELL_OBJECT_PATH="/org/gnome/Shell"
 readonly GNOME_SHELL_EXTENSIONS_BUS_NAME="org.gnome.Shell.Extensions"
 readonly GNOME_SHELL_EXTENSIONS_OBJECT_PATH="/org/gnome/Shell/Extensions"
+
+gnome_shell_call() {
+    local method="$1"
+    shift
+
+    run_user gdbus call \
+        --session \
+        --dest "$GNOME_SHELL_BUS_NAME" \
+        --object-path "$GNOME_SHELL_OBJECT_PATH" \
+        --method "org.gnome.Shell.$method" \
+        "$@"
+}
 
 gnome_shell_extensions_call() {
     local method="$1"
@@ -166,6 +180,43 @@ enable_extension_live() {
     return 0
 }
 
+install_and_enable_extension() {
+    local section_title="$1"
+    local package_name="$2"
+    local extension_uuid="$3"
+
+    pf_log_section "$section_title"
+    pf_retry_command dnf install -y "$package_name"
+    enable_extension_live "$extension_uuid"
+}
+
+reload_gnome_shell() {
+    local reload_output
+    local restart_command='Meta.restart("pop-fedora applied GNOME extensions")'
+    local service_unavailable_warning="Skipping GNOME Shell reload: the GNOME Shell service is not available in the current user session."
+    local restart_failed_warning="GNOME Shell reload was rejected or is unsupported in the current session."
+
+    pf_log_section "Reload GNOME Shell"
+
+    if ! shell_extensions_service_is_available; then
+        pf_log_warning "$service_unavailable_warning"
+        return 0
+    fi
+
+    if ! reload_output="$(gnome_shell_call Eval "$restart_command" 2>/dev/null)"; then
+        pf_log_warning "$restart_failed_warning"
+        return 0
+    fi
+
+    if [[ "$reload_output" != "(true,"* ]]; then
+        pf_log_warning "$restart_failed_warning"
+        return 0
+    fi
+
+    pf_log_success "Requested GNOME Shell reload."
+    return 0
+}
+
 configure_custom_keybinding() {
     local keybinding_id="$1"
     local name="$2"
@@ -199,10 +250,15 @@ run_user gsettings set org.gnome.desktop.interface icon-theme 'Papirus'
 run_user gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
 run_user gsettings set org.gnome.desktop.interface accent-color 'slate'
 
-pf_log_section "Configure AppIndicator Extension"
-EXT="appindicatorsupport@rgcjonas.gmail.com"
-pf_retry_command dnf install -y gnome-shell-extension-appindicator
-enable_extension_live "$EXT"
+install_and_enable_extension \
+    "Configure AppIndicator Extension" \
+    "gnome-shell-extension-appindicator" \
+    "appindicatorsupport@rgcjonas.gmail.com"
+install_and_enable_extension \
+    "Configure Dash to Dock Extension" \
+    "gnome-shell-extension-dash-to-dock" \
+    "dash-to-dock@micxgx.gmail.com"
+reload_gnome_shell
 
 pf_log_section "Configure Gnome Settings"
 run_user gsettings set org.gnome.desktop.wm.preferences resize-with-right-button true
