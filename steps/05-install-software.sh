@@ -181,7 +181,7 @@ install_cascadia_mono_nerd_font() {
     local font_directory
     local tmp_zip
 
-    font_archive_url="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/CascadiaMono.zip"
+    font_archive_url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/CascadiaMono.zip"
     font_directory="/usr/local/share/fonts/cascadia-mono-nerd-font"
     tmp_zip="$(mktemp --suffix=.zip)"
     trap 'rm -f -- "$tmp_zip"' RETURN
