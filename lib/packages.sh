@@ -85,12 +85,14 @@ if [[ -z "${POP_FEDORA_PACKAGES_SH:-}" ]]; then
         local attempt
         local attempts
         local delay_seconds
+        local -a dnf_command
         local errexit_was_set
         local exit_code
 
         attempts="${POP_FEDORA_RETRY_ATTEMPTS:-$POP_FEDORA_RETRY_ATTEMPTS_DEFAULT}"
         delay_seconds="${POP_FEDORA_RETRY_DELAY_SECONDS:-$POP_FEDORA_RETRY_DELAY_SECONDS_DEFAULT}"
         attempt=1
+        dnf_command=(dnf -y)
 
         while true; do
             pf_log_info "Refreshing DNF metadata and applying system updates (attempt $attempt/$attempts)"
@@ -101,10 +103,10 @@ if [[ -z "${POP_FEDORA_PACKAGES_SH:-}" ]]; then
             fi
 
             set +e
-            dnf clean metadata &&
-                dnf makecache --refresh &&
-                dnf update -y &&
-                dnf upgrade -y
+            "${dnf_command[@]}" clean metadata &&
+                "${dnf_command[@]}" makecache --refresh &&
+                "${dnf_command[@]}" update &&
+                "${dnf_command[@]}" upgrade
             exit_code=$?
             if (( errexit_was_set )); then
                 set -e
@@ -126,7 +128,7 @@ if [[ -z "${POP_FEDORA_PACKAGES_SH:-}" ]]; then
             pf_log_warning "DNF refresh failed on attempt $attempt/$attempts. Cleaning metadata and rebuilding the libdnf5 cache before retrying."
 
             # Corrupted or stale libdnf5 metadata can survive a normal retry, so clear the cache before trying again.
-            dnf clean all || true
+            "${dnf_command[@]}" clean all || true
             rm -rf /var/cache/libdnf5/* || true
 
             pf_log_info "Retrying in ${delay_seconds}s..."
