@@ -2,6 +2,8 @@
 
 Interactive Fedora setup scripts.
 
+Step `03` refreshes firmware, installs multimedia codecs, and auto-detects Intel, AMD, and NVIDIA display hardware to apply the matching driver/media package flow.
+
 ## Run from GitHub
 
 This command downloads `install.sh` from GitHub, fetches the full repo into a temporary directory, runs the numbered scripts in `steps/` in order, and then removes the temporary checkout:
