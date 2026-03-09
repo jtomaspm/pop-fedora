@@ -176,13 +176,15 @@ install_desktop_apps() {
         ghostty
 }
 
-install_cascadia_mono_nerd_font() {
+install_nerd_font_archive() {
+    local font_name
     local font_archive_url
     local font_directory
     local tmp_zip
 
-    font_archive_url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/CascadiaMono.zip"
-    font_directory="/usr/local/share/fonts/cascadia-mono-nerd-font"
+    font_name="$1"
+    font_archive_url="$2"
+    font_directory="$3"
     tmp_zip="$(mktemp --suffix=.zip)"
     trap 'rm -f -- "$tmp_zip"' RETURN
 
@@ -191,7 +193,7 @@ install_cascadia_mono_nerd_font() {
         pf_retry_command dnf install -y fontconfig
     fi
 
-    pf_log_info "Installing Cascadia Mono Nerd Font system-wide."
+    pf_log_info "Installing $font_name system-wide."
 
     mkdir -p "$font_directory"
     find "$font_directory" -mindepth 1 -maxdepth 1 -type f \( -iname '*.ttf' -o -iname '*.otf' \) -delete
@@ -201,15 +203,27 @@ install_cascadia_mono_nerd_font() {
     find "$font_directory" -mindepth 1 -maxdepth 1 -type f ! \( -iname '*.ttf' -o -iname '*.otf' \) -delete
 
     if ! find "$font_directory" -mindepth 1 -maxdepth 1 -type f \( -iname '*.ttf' -o -iname '*.otf' \) | grep -q .; then
-        pf_log_error "Cascadia Mono Nerd Font archive did not contain any installable font files."
+        pf_log_error "$font_name archive did not contain any installable font files."
         return 1
     fi
 
     fc-cache -f "$font_directory"
-    pf_log_success "Cascadia Mono Nerd Font installed system-wide."
+    pf_log_success "$font_name installed system-wide."
 
     trap - RETURN
     rm -f -- "$tmp_zip"
+}
+
+install_nerd_fonts() {
+    install_nerd_font_archive \
+        "Cascadia Mono Nerd Font" \
+        "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/CascadiaMono.zip" \
+        "/usr/local/share/fonts/cascadia-mono-nerd-font"
+
+    install_nerd_font_archive \
+        "Cascadia Code Nerd Font" \
+        "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/CascadiaCode.zip" \
+        "/usr/local/share/fonts/cascadia-code-nerd-font"
 }
 
 install_claude_code() {
@@ -315,7 +329,7 @@ pf_log_section "Install Desktop Applications"
 install_desktop_apps
 
 pf_log_section "Install System Fonts"
-install_cascadia_mono_nerd_font
+install_nerd_fonts
 
 pf_log_section "Install Global CLI Tools"
 install_global_tools
