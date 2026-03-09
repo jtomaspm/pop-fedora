@@ -284,48 +284,12 @@ nvidia_kernel_module_is_available() {
     return 1
 }
 
-pf_wait_for_nvidia_module() {
-    local elapsed_seconds
-    local kernel_version
-    local timeout_seconds
-    local wait_interval_seconds
-
-    kernel_version="$(uname -r)"
-    timeout_seconds="${POP_FEDORA_NVIDIA_MODULE_WAIT_TIMEOUT_SECONDS}"
-    wait_interval_seconds="${POP_FEDORA_NVIDIA_MODULE_WAIT_INTERVAL_SECONDS}"
-    elapsed_seconds=0
-
-    pf_log_info "Waiting up to ${timeout_seconds}s for the NVIDIA kernel module to become available for kernel $kernel_version."
-
-    while (( elapsed_seconds <= timeout_seconds )); do
-        if nvidia_kernel_module_is_available "$kernel_version"; then
-            pf_log_success "The NVIDIA kernel module is ready for kernel $kernel_version."
-            return 0
-        fi
-
-        if (( elapsed_seconds == timeout_seconds )); then
-            break
-        fi
-
-        pf_log_info "The NVIDIA kernel module is still building for kernel $kernel_version (${elapsed_seconds}s/${timeout_seconds}s elapsed)."
-        sleep "$wait_interval_seconds"
-        elapsed_seconds=$((elapsed_seconds + wait_interval_seconds))
-    done
-
-    pf_log_warning "The NVIDIA kernel module is still unavailable for kernel $kernel_version after ${timeout_seconds}s."
-    pf_log_warning "Inspect /var/cache/akmods/ and /var/log/akmods/akmods.log for build details."
-
-    return 1
-}
-
 prepare_nvidia_kernel_module() {
     pf_log_info "Rebuilding the NVIDIA kernel module with akmods."
     pf_retry_command akmods --force --rebuild
 
     pf_log_info "Regenerating initramfs with the rebuilt NVIDIA module."
     pf_retry_command dracut --force
-
-    pf_wait_for_nvidia_module
 }
 
 handle_nvidia_drivers() {
