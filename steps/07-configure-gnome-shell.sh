@@ -47,50 +47,11 @@ extension_is_registered() {
     grep -Fq "$extension_uuid" <<<"$output"
 }
 
-extension_is_enabled() {
-    local extension_uuid="$1"
-    local output
-
-    if ! output="$(gnome_shell_extensions_call GetExtensionInfo "$extension_uuid" 2>/dev/null)"; then
-        return 1
-    fi
-
-    grep -Eq "'state': <1(\\.0+)?>" <<<"$output"
-}
-
-wait_for_extension_registration() {
-    local extension_uuid="$1"
-    local attempt
-
-    # RPM installation can finish before the live GNOME Shell session notices the extension.
-    pf_log_info "Waiting for GNOME to detect $extension_uuid..."
-
-    for ((attempt = 1; attempt <= 30; attempt++)); do
-        if extension_is_registered "$extension_uuid"; then
-            return 0
-        fi
-
-        sleep 1
-    done
-
-    return 1
-}
-
 enable_extension_live() {
     local extension_uuid="$1"
     local output
     local not_registered_warning="Installed $extension_uuid but GNOME Shell did not register it in the current session. It should be available after the next login."
     local enable_failed_warning="Installed $extension_uuid but could not enable it in the current session. It should be available after the next login."
-
-    if extension_is_enabled "$extension_uuid"; then
-        pf_log_info "$extension_uuid already enabled"
-        return 0
-    fi
-
-    if ! wait_for_extension_registration "$extension_uuid"; then
-        pf_log_warning "$not_registered_warning"
-        return 0
-    fi
 
     if extension_is_enabled "$extension_uuid"; then
         pf_log_info "$extension_uuid already enabled"
