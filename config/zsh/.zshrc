@@ -1,5 +1,5 @@
 # source global shell alias & variables files
-[ -f "$XDG_CONFIG_HOME/shell/profile" ] && source "$XDG_CONFIG_HOME/shell/profile"
+[ -f "$HOME/.config/shell/profile" ] && source "$HOME/.config/shell/profile"
 
 # load modules
 zmodload zsh/complist
