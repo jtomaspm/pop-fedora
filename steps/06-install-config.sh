@@ -69,6 +69,16 @@ set_target_ownership() {
     fi
 }
 
+set_target_ownership_recursive() {
+    local path
+
+    path="$1"
+
+    if [[ "$EUID" -eq 0 ]]; then
+        chown -R "$target_user:$target_group" "$path"
+    fi
+}
+
 ensure_directory() {
     local directory
 
@@ -98,6 +108,27 @@ install_config_file() {
     pf_log_success "Installed $source_relative_path to $target_path"
 }
 
+install_config_directory() {
+    local source_relative_path
+    local source_path
+    local target_path
+
+    source_relative_path="$1"
+    target_path="$2"
+    source_path="$REPO_ROOT/$source_relative_path"
+
+    if [[ ! -d "$source_path" ]]; then
+        pf_log_error "Missing config source directory: $source_relative_path"
+        return 1
+    fi
+
+    rm -rf "$target_path"
+    mkdir -p "$target_path"
+    cp -a "$source_path/." "$target_path"
+    set_target_ownership_recursive "$target_path"
+    pf_log_success "Installed $source_relative_path to $target_path"
+}
+
 ensure_bashrc_profile_line() {
     local bashrc_path
 
@@ -124,7 +155,7 @@ ensure_bashrc_profile_line() {
     pf_log_success "Added shared shell profile sourcing to $bashrc_path"
 }
 
-pf_log_section "Install Shell Configuration"
+pf_log_section "Install User Configuration"
 resolve_target_user
 
 ensure_directory "$target_home/.config/shell"
@@ -133,5 +164,7 @@ ensure_directory "$target_home/.config/scripts"
 
 install_config_file "config/zsh/.zshrc" "$target_home/.zshrc"
 install_config_file "config/shell/profile" "$target_home/.config/shell/profile"
+install_config_file "config/ghostty/config" "$target_home/.config/ghostty/config"
+install_config_directory "config/nvim" "$target_home/.config/nvim"
 
 ensure_bashrc_profile_line
