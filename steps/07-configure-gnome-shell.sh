@@ -30,6 +30,8 @@ readonly GNOME_SHELL_BUS_NAME="org.gnome.Shell"
 readonly GNOME_SHELL_OBJECT_PATH="/org/gnome/Shell"
 readonly GNOME_SHELL_EXTENSIONS_BUS_NAME="org.gnome.Shell.Extensions"
 readonly GNOME_SHELL_EXTENSIONS_OBJECT_PATH="/org/gnome/Shell/Extensions"
+readonly DASH_TO_DOCK_SCHEMA="org.gnome.shell.extensions.dash-to-dock"
+readonly DASH_TO_DOCK_EXTENSION_UUID="dash-to-dock@micxgx.gmail.com"
 
 gnome_shell_call() {
     local method="$1"
@@ -54,6 +56,13 @@ gnome_shell_extensions_call() {
         --object-path "$GNOME_SHELL_EXTENSIONS_OBJECT_PATH" \
         --method "org.gnome.Shell.Extensions.$method" \
         "$@"
+}
+
+shell_service_is_available() {
+    run_user gdbus introspect \
+        --session \
+        --dest "$GNOME_SHELL_BUS_NAME" \
+        --object-path "$GNOME_SHELL_OBJECT_PATH" >/dev/null 2>&1
 }
 
 shell_extensions_service_is_available() {
@@ -150,6 +159,20 @@ gsettings_string_array_remove() {
     set_gsettings_string_array "$schema" "$key" "${filtered_values[@]}"
 }
 
+mark_extension_enabled_in_gsettings() {
+    local extension_uuid="$1"
+
+    gsettings_string_array_add_unique "$GNOME_SHELL_SCHEMA" enabled-extensions "$extension_uuid"
+    gsettings_string_array_remove "$GNOME_SHELL_SCHEMA" disabled-extensions "$extension_uuid"
+}
+
+mark_extension_disabled_in_gsettings() {
+    local extension_uuid="$1"
+
+    gsettings_string_array_remove "$GNOME_SHELL_SCHEMA" enabled-extensions "$extension_uuid"
+    gsettings_string_array_add_unique "$GNOME_SHELL_SCHEMA" disabled-extensions "$extension_uuid"
+}
+
 enable_extension_live() {
     local extension_uuid="$1"
     local service_unavailable_warning="Skipping live enable for $extension_uuid: the GNOME Shell extensions service is not available in the current user session."
@@ -173,8 +196,7 @@ enable_extension_live() {
         return 0
     fi
 
-    gsettings_string_array_add_unique "$GNOME_SHELL_SCHEMA" enabled-extensions "$extension_uuid"
-    gsettings_string_array_remove "$GNOME_SHELL_SCHEMA" disabled-extensions "$extension_uuid"
+    mark_extension_enabled_in_gsettings "$extension_uuid"
 
     pf_log_success "Enabled $extension_uuid in the current GNOME session."
     return 0
@@ -190,30 +212,85 @@ install_and_enable_extension() {
     enable_extension_live "$extension_uuid"
 }
 
-reload_gnome_shell() {
-    local reload_output
-    local restart_command='Meta.restart("pop-fedora applied GNOME extensions")'
-    local service_unavailable_warning="Skipping GNOME Shell reload: the GNOME Shell service is not available in the current user session."
-    local restart_failed_warning="GNOME Shell reload was rejected or is unsupported in the current session."
+configure_dash_to_dock() {
+    pf_log_section "Configure Dash To Dock"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" dash-max-icon-size 42
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-trash false
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-mounts false
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" custom-theme-shrink true
+}
 
-    pf_log_section "Reload GNOME Shell"
+reapply_extension_live() {
+    local extension_uuid="$1"
+    local service_unavailable_warning="Skipping live reapply for $extension_uuid: the GNOME Shell extensions service is not available in the current user session."
+    local not_registered_warning="Skipping live reapply for $extension_uuid: GNOME Shell has not registered it in the current session."
+    local disable_failed_warning="Skipping live reapply for $extension_uuid: GNOME Shell rejected the disable request."
+    local enable_failed_warning="Skipping live reapply for $extension_uuid: GNOME Shell rejected the enable request."
 
     if ! shell_extensions_service_is_available; then
         pf_log_warning "$service_unavailable_warning"
+        return 1
+    fi
+
+    if ! extension_is_registered "$extension_uuid"; then
+        pf_log_warning "$not_registered_warning"
+        return 1
+    fi
+
+    pf_log_info "Reapplying $extension_uuid in the current GNOME session..."
+
+    if ! gnome_shell_extensions_call DisableExtension "$extension_uuid" >/dev/null 2>&1; then
+        pf_log_warning "$disable_failed_warning"
+        return 1
+    fi
+
+    mark_extension_disabled_in_gsettings "$extension_uuid"
+
+    if ! gnome_shell_extensions_call EnableExtension "$extension_uuid" >/dev/null 2>&1; then
+        pf_log_warning "$enable_failed_warning"
+        return 1
+    fi
+
+    mark_extension_enabled_in_gsettings "$extension_uuid"
+
+    pf_log_success "Reapplied $extension_uuid in the current GNOME session."
+    return 0
+}
+
+reload_gnome_shell() {
+    local reload_output
+    local restart_command='Meta.restart("pop-fedora applied GNOME extensions")'
+    local service_unavailable_warning="Skipping GNOME Shell reload: the GNOME Shell DBus service is not available in the current user session."
+    local restart_failed_warning="GNOME Shell reload was rejected or is unsupported in the current session."
+    local restart_fallback_warning="GNOME Shell reload did not complete; falling back to a live Dash to Dock reapply."
+    local restart_output_warning="GNOME Shell reload returned an unexpected response; falling back to a live Dash to Dock reapply."
+    local reapply_failed_warning="Dash to Dock settings were written, but the extension could not be reapplied live. A logout or manual shell restart may still be required."
+
+    pf_log_section "Reload GNOME Shell"
+
+    if ! shell_service_is_available; then
+        pf_log_warning "$service_unavailable_warning"
+    else
+        if reload_output="$(gnome_shell_call Eval "$restart_command" 2>/dev/null)"; then
+            if [[ "$reload_output" == "(true,"* ]]; then
+                pf_log_success "Requested GNOME Shell reload."
+                return 0
+            fi
+
+            pf_log_warning "$restart_output_warning"
+        else
+            pf_log_warning "$restart_failed_warning"
+        fi
+    fi
+
+    pf_log_warning "$restart_fallback_warning"
+
+    if reapply_extension_live "$DASH_TO_DOCK_EXTENSION_UUID"; then
+        pf_log_success "Dash to Dock settings were reapplied without a full GNOME Shell restart."
         return 0
     fi
 
-    if ! reload_output="$(gnome_shell_call Eval "$restart_command" 2>/dev/null)"; then
-        pf_log_warning "$restart_failed_warning"
-        return 0
-    fi
-
-    if [[ "$reload_output" != "(true,"* ]]; then
-        pf_log_warning "$restart_failed_warning"
-        return 0
-    fi
-
-    pf_log_success "Requested GNOME Shell reload."
+    pf_log_warning "$reapply_failed_warning"
     return 0
 }
 
@@ -257,8 +334,10 @@ install_and_enable_extension \
 install_and_enable_extension \
     "Configure Dash to Dock Extension" \
     "gnome-shell-extension-dash-to-dock" \
-    "dash-to-dock@micxgx.gmail.com"
+    "$DASH_TO_DOCK_EXTENSION_UUID"
+configure_dash_to_dock
 reload_gnome_shell
+configure_dash_to_dock
 
 pf_log_section "Configure Gnome Settings"
 run_user gsettings set org.gnome.desktop.wm.preferences resize-with-right-button true
