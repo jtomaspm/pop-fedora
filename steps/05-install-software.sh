@@ -197,7 +197,8 @@ install_cascadia_mono_nerd_font() {
     find "$font_directory" -mindepth 1 -maxdepth 1 -type f \( -iname '*.ttf' -o -iname '*.otf' \) -delete
 
     pf_retry_command curl -fL "$font_archive_url" -o "$tmp_zip"
-    unzip -joq "$tmp_zip" '*.ttf' '*.otf' -d "$font_directory"
+    unzip -joq "$tmp_zip" -d "$font_directory"
+    find "$font_directory" -mindepth 1 -maxdepth 1 -type f ! \( -iname '*.ttf' -o -iname '*.otf' \) -delete
 
     if ! find "$font_directory" -mindepth 1 -maxdepth 1 -type f \( -iname '*.ttf' -o -iname '*.otf' \) | grep -q .; then
         pf_log_error "Cascadia Mono Nerd Font archive did not contain any installable font files."
