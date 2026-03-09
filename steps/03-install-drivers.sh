@@ -9,7 +9,7 @@ source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pw
 refresh_firmware_commands() {
     pf_retry_command fwupdmgr refresh --force
     fwupdmgr get-devices
-    pf_retry_command fwupdmgr get-updates
+    fwupdmgr get-updates
     pf_retry_command fwupdmgr update
 }
 
