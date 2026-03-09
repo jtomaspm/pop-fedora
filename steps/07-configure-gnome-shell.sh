@@ -138,7 +138,6 @@ gsettings_string_array_remove() {
 
 enable_extension_live() {
     local extension_uuid="$1"
-    local output
     local service_unavailable_warning="Skipping live enable for $extension_uuid: the GNOME Shell extensions service is not available in the current user session."
     local not_registered_warning="Installed $extension_uuid but GNOME Shell has not registered it in the current session."
     local enable_failed_warning="Installed $extension_uuid but GNOME Shell rejected the live enable request."
@@ -155,18 +154,13 @@ enable_extension_live() {
         return 0
     fi
 
-    if ! output="$(gnome_shell_extensions_call EnableExtension "$extension_uuid" 2>/dev/null)"; then
+    if ! gnome_shell_extensions_call EnableExtension "$extension_uuid" >/dev/null 2>&1; then
         pf_log_warning "$enable_failed_warning"
         return 0
     fi
 
     gsettings_string_array_add_unique "$GNOME_SHELL_SCHEMA" enabled-extensions "$extension_uuid"
     gsettings_string_array_remove "$GNOME_SHELL_SCHEMA" disabled-extensions "$extension_uuid"
-
-    if [[ "$output" != *"true"* && "$output" != "()" ]]; then
-        pf_log_warning "GNOME Shell returned an unexpected live-enable response for $extension_uuid: $output"
-        return 0
-    fi
 
     pf_log_success "Enabled $extension_uuid in the current GNOME session."
     return 0
