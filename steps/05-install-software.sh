@@ -171,6 +171,8 @@ install_desktop_apps() {
     pf_retry_command dnf install -y \
         steam \
         lutris \
+        fragments \
+        remote-viewer \
         nautilus-python \
         gnome-tweaks \
         ghostty
