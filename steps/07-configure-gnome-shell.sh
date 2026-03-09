@@ -23,6 +23,10 @@ run_user() {
     pf_run_in_user_session "$target_user" "$@"
 }
 
+readonly GNOME_SHELL_SCHEMA="org.gnome.shell"
+readonly GNOME_SHELL_EXTENSIONS_BUS_NAME="org.gnome.Shell.Extensions"
+readonly GNOME_SHELL_EXTENSIONS_OBJECT_PATH="/org/gnome/Shell/Extensions"
+
 gnome_shell_extensions_call() {
     local method="$1"
     shift
@@ -30,46 +34,139 @@ gnome_shell_extensions_call() {
     # Probe failures are handled by the caller so the installer can continue.
     run_user gdbus call \
         --session \
-        --dest org.gnome.Shell \
-        --object-path /org/gnome/Shell \
+        --dest "$GNOME_SHELL_EXTENSIONS_BUS_NAME" \
+        --object-path "$GNOME_SHELL_EXTENSIONS_OBJECT_PATH" \
         --method "org.gnome.Shell.Extensions.$method" \
         "$@"
 }
 
+shell_extensions_service_is_available() {
+    gnome_shell_extensions_call ListExtensions >/dev/null 2>&1
+}
+
 extension_is_registered() {
     local extension_uuid="$1"
-    local output
 
-    if ! output="$(gnome_shell_extensions_call ListExtensions 2>/dev/null)"; then
-        return 1
+    gnome_shell_extensions_call GetExtensionInfo "$extension_uuid" >/dev/null 2>&1
+}
+
+gsettings_get_string_array_entries() {
+    local schema="$1"
+    local key="$2"
+
+    run_user gsettings get "$schema" "$key" \
+        | sed -E 's/^@as +//' \
+        | tr -d '[]' \
+        | tr ',' '\n' \
+        | sed -E "s/^ *'//; s/' *$//; s/^ *//; s/ *$//" \
+        | sed '/^$/d'
+}
+
+set_gsettings_string_array() {
+    local schema="$1"
+    local key="$2"
+    local values=("${@:3}")
+    local serialized="["
+    local value
+
+    for value in "${values[@]}"; do
+        if [[ "$serialized" != "[" ]]; then
+            serialized+=", "
+        fi
+
+        serialized+="'$value'"
+    done
+
+    serialized+="]"
+    run_user gsettings set "$schema" "$key" "$serialized"
+}
+
+string_array_contains_entry() {
+    local target_value="$1"
+    shift
+    local value
+
+    for value in "$@"; do
+        if [[ "$value" == "$target_value" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+gsettings_string_array_add_unique() {
+    local schema="$1"
+    local key="$2"
+    local target_value="$3"
+    local values=()
+
+    mapfile -t values < <(gsettings_get_string_array_entries "$schema" "$key")
+
+    if string_array_contains_entry "$target_value" "${values[@]}"; then
+        return 0
     fi
 
-    grep -Fq "$extension_uuid" <<<"$output"
+    values+=("$target_value")
+    set_gsettings_string_array "$schema" "$key" "${values[@]}"
+}
+
+gsettings_string_array_remove() {
+    local schema="$1"
+    local key="$2"
+    local target_value="$3"
+    local values=()
+    local filtered_values=()
+    local value
+
+    mapfile -t values < <(gsettings_get_string_array_entries "$schema" "$key")
+
+    for value in "${values[@]}"; do
+        if [[ "$value" != "$target_value" ]]; then
+            filtered_values+=("$value")
+        fi
+    done
+
+    if [[ "${#filtered_values[@]}" -eq "${#values[@]}" ]]; then
+        return 0
+    fi
+
+    set_gsettings_string_array "$schema" "$key" "${filtered_values[@]}"
 }
 
 enable_extension_live() {
     local extension_uuid="$1"
     local output
-    local not_registered_warning="Installed $extension_uuid but GNOME Shell did not register it in the current session. It should be available after the next login."
-    local enable_failed_warning="Installed $extension_uuid but could not enable it in the current session. It should be available after the next login."
+    local service_unavailable_warning="Skipping live enable for $extension_uuid: the GNOME Shell extensions service is not available in the current user session."
+    local not_registered_warning="Installed $extension_uuid but GNOME Shell has not registered it in the current session."
+    local enable_failed_warning="Installed $extension_uuid but GNOME Shell rejected the live enable request."
 
-    if extension_is_enabled "$extension_uuid"; then
-        pf_log_info "$extension_uuid already enabled"
+    pf_log_info "Enabling $extension_uuid..."
+
+    if ! shell_extensions_service_is_available; then
+        pf_log_warning "$service_unavailable_warning"
         return 0
     fi
 
-    pf_log_info "Enabling $extension_uuid..."
+    if ! extension_is_registered "$extension_uuid"; then
+        pf_log_warning "$not_registered_warning"
+        return 0
+    fi
 
     if ! output="$(gnome_shell_extensions_call EnableExtension "$extension_uuid" 2>/dev/null)"; then
         pf_log_warning "$enable_failed_warning"
         return 0
     fi
 
-    if grep -Fq "true" <<<"$output" || extension_is_enabled "$extension_uuid"; then
+    gsettings_string_array_add_unique "$GNOME_SHELL_SCHEMA" enabled-extensions "$extension_uuid"
+    gsettings_string_array_remove "$GNOME_SHELL_SCHEMA" disabled-extensions "$extension_uuid"
+
+    if [[ "$output" != *"true"* && "$output" != "()" ]]; then
+        pf_log_warning "GNOME Shell returned an unexpected live-enable response for $extension_uuid: $output"
         return 0
     fi
 
-    pf_log_warning "$enable_failed_warning"
+    pf_log_success "Enabled $extension_uuid in the current GNOME session."
     return 0
 }
 
