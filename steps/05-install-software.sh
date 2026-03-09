@@ -209,10 +209,45 @@ install_claude_code() {
     pf_log_info "Claude Code will be available in a new shell after ~/.local/bin is added to PATH."
 }
 
+install_ollama() {
+    local target_user
+
+    pf_log_info "Installing Ollama system-wide."
+    pf_retry_command bash -lc 'set -euo pipefail; curl -fsSL https://ollama.com/install.sh | sh'
+
+    if ! target_user="$(pf_user_require_for_action_or_warn "Ollama installed, but no non-root target user was detected for ollama group membership.")"; then
+        pf_log_success "Ollama installed as a system service."
+        return 0
+    fi
+
+    if ! getent group ollama >/dev/null; then
+        pf_log_warning "Ollama installed, but the ollama group was not found. Skipping target user group configuration."
+        pf_log_success "Ollama installed as a system service."
+        return 0
+    fi
+
+    if id -nG "$target_user" | grep -qw ollama; then
+        pf_log_info "$target_user is already in the ollama group."
+        pf_log_success "Ollama installed as a system service."
+        return 0
+    fi
+
+    if [[ "$EUID" -ne 0 ]]; then
+        pf_log_warning "Ollama installed, but this script is not running as root, so $target_user could not be added to the ollama group automatically."
+        pf_log_success "Ollama installed as a system service."
+        return 0
+    fi
+
+    pf_user_add_to_group_if_non_root "$target_user" ollama
+    pf_log_info "$target_user was added to the ollama group. You may need to log out and log back in for this to take effect."
+    pf_log_success "Ollama installed as a system service."
+}
+
 install_global_tools() {
     npm i -g opencode-ai
     npm i -g @openai/codex
     install_claude_code
+    install_ollama
 }
 
 pf_log_section "Configure System Services"
