@@ -3,17 +3,16 @@ set -euo pipefail
 
 # shellcheck source=../lib/logging.sh
 source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/logging.sh"
+# shellcheck source=../lib/users.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/users.sh"
+# shellcheck source=../lib/session.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/session.sh"
 
-target_user="${SUDO_USER:-}"
-
-if [[ -z "$target_user" || "$target_user" == "root" ]]; then
-    pf_log_warning "Skipping GNOME configuration: no non-root invoking user was detected."
+if ! target_user="$(pf_user_require_default_or_warn "Skipping GNOME configuration: no non-root invoking user was detected.")"; then
     exit 0
 fi
 
-target_uid="$(id -u "$target_user")"
-target_runtime_dir="/run/user/$target_uid"
-target_bus="$target_runtime_dir/bus"
+target_bus="$(pf_user_session_bus_path "$target_user")"
 
 if [[ ! -S "$target_bus" ]]; then
     pf_log_warning "Skipping GNOME configuration: no active session bus was found for $target_user."
@@ -21,10 +20,7 @@ if [[ ! -S "$target_bus" ]]; then
 fi
 
 run_user() {
-    sudo -u "$target_user" env \
-        XDG_RUNTIME_DIR="$target_runtime_dir" \
-        DBUS_SESSION_BUS_ADDRESS="unix:path=$target_bus" \
-        "$@"
+    pf_run_in_user_session "$target_user" "$@"
 }
 
 gnome_shell_extensions_call() {

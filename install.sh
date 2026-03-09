@@ -79,13 +79,7 @@ git_config_get() {
     local key
 
     key="$1"
-
-    if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" ]]; then
-        sudo -u "$SUDO_USER" git config --global --get "$key" 2>/dev/null || true
-        return 0
-    fi
-
-    git config --global --get "$key" 2>/dev/null || true
+    pf_git_config_get "$key"
 }
 
 prompt_for_git_config() {
@@ -390,6 +384,8 @@ main() {
         logging_file="$LIB_DIR/logging.sh"
         # shellcheck source=lib/logging.sh
         source "$logging_file"
+        # shellcheck source=lib/git.sh
+        source "$LIB_DIR/git.sh"
         pf_log_section "Repository"
         pf_log_info "Using local checkout at $REPO_ROOT"
     else

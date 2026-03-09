@@ -3,14 +3,18 @@ set -euo pipefail
 
 # shellcheck source=../lib/logging.sh
 source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/logging.sh"
+# shellcheck source=../lib/packages.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/packages.sh"
 
-refresh_firmware() {
-    set +e
+refresh_firmware_commands() {
     fwupdmgr refresh --force
     fwupdmgr get-devices
     fwupdmgr get-updates
     fwupdmgr update
-    set -e
+}
+
+refresh_firmware() {
+    pf_run_best_effort refresh_firmware_commands
 }
 
 install_multimedia_support() {

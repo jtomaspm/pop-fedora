@@ -3,6 +3,8 @@ set -euo pipefail
 
 # shellcheck source=../lib/logging.sh
 source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/logging.sh"
+# shellcheck source=../lib/packages.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/packages.sh"
 
 config_dir="/etc/dnf/libdnf5.conf.d"
 config_file="$config_dir/420-pop.conf"
@@ -29,5 +31,4 @@ write_dnf_config
 show_dnf_config
 
 pf_log_section "Update System Packages"
-dnf update -y
-dnf upgrade -y
+pf_dnf_refresh_system

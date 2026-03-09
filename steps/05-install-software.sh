@@ -3,6 +3,24 @@ set -euo pipefail
 
 # shellcheck source=../lib/logging.sh
 source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/logging.sh"
+# shellcheck source=../lib/packages.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/packages.sh"
+# shellcheck source=../lib/users.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/users.sh"
+
+configure_vscode_repository_commands() {
+    local vscode_key_url
+    local vscode_repo_file
+    local vscode_repo_config
+
+    vscode_key_url="https://packages.microsoft.com/keys/microsoft.asc"
+    vscode_repo_file="/etc/yum.repos.d/vscode.repo"
+    vscode_repo_config="[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc"
+
+    rpm --import "$vscode_key_url"
+    echo -e "$vscode_repo_config" | sudo tee "$vscode_repo_file" > /dev/null
+    dnf check-update -y
+}
 
 disable_wait_online_service() {
     systemctl disable NetworkManager-wait-online.service
@@ -26,17 +44,17 @@ remove_preinstalled_software() {
 refresh_system_packages() {
     dnf autoremove -y
     dnf clean all
-    dnf update -y
-    dnf upgrade -y
+    pf_dnf_refresh_system
 }
 
 install_flatpak_software() {
-    flatpak install --system -y flathub app.zen_browser.zen
-    flatpak install --system -y flathub com.stremio.Stremio
-    flatpak install --system -y flathub com.mattjakeman.ExtensionManager
-    flatpak install --system -y flathub com.vysp3r.ProtonPlus
-    flatpak install --system -y flathub org.onlyoffice.desktopeditors
-    flatpak install --system -y flathub io.ente.auth
+    pf_flatpak_install_system flathub \
+        app.zen_browser.zen \
+        com.stremio.Stremio \
+        com.mattjakeman.ExtensionManager \
+        com.vysp3r.ProtonPlus \
+        org.onlyoffice.desktopeditors \
+        io.ente.auth
 }
 
 install_github_cli() {
@@ -62,13 +80,9 @@ install_development_tooling() {
 configure_default_shell() {
     local target_user
     local zsh_path
-    local passwd_entry
     local current_shell
 
-    target_user="${SUDO_USER:-${USER:-}}"
-
-    if [[ -z "$target_user" ]]; then
-        pf_log_warning "Skipping default shell configuration: no target user was detected."
+    if ! target_user="$(pf_user_require_for_action_or_warn "Skipping default shell configuration: no target user was detected.")"; then
         return 0
     fi
 
@@ -77,12 +91,10 @@ configure_default_shell() {
         return 1
     fi
 
-    if ! passwd_entry="$(getent passwd "$target_user")"; then
+    if ! current_shell="$(pf_user_get_passwd_field "$target_user" shell)"; then
         pf_log_error "Unable to configure the default shell: user $target_user was not found."
         return 1
     fi
-
-    current_shell="${passwd_entry##*:}"
 
     if [[ "$current_shell" == "$zsh_path" ]]; then
         pf_log_info "$target_user already uses $zsh_path as the default shell."
@@ -94,19 +106,7 @@ configure_default_shell() {
 }
 
 configure_vscode_repository() {
-    local vscode_key_url
-    local vscode_repo_file
-    local vscode_repo_config
-
-    vscode_key_url="https://packages.microsoft.com/keys/microsoft.asc"
-    vscode_repo_file="/etc/yum.repos.d/vscode.repo"
-    vscode_repo_config="[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc"
-
-    set +e
-    rpm --import "$vscode_key_url"
-    echo -e "$vscode_repo_config" | sudo tee "$vscode_repo_file" > /dev/null
-    dnf check-update -y
-    set -e
+    pf_run_best_effort configure_vscode_repository_commands
 }
 
 install_vscode() {
@@ -116,6 +116,7 @@ install_vscode() {
 install_docker() {
     local docker_desktop_url
     local docker_target_user
+    local target_user_message
 
     # Docker Desktop for Fedora
     # Official docs:
@@ -123,7 +124,13 @@ install_docker() {
 
     # Docker Desktop is only supported on Fedora x86_64 and requires a desktop session.
     docker_desktop_url="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64-rhel.rpm?utm_source=docker&utm_medium=webreferral&utm_campaign=docs-driven-download-linux-amd64"
-    docker_target_user="${SUDO_USER:-${USER:-}}"
+    target_user_message="Docker group exists. No non-root user was detected to add to it automatically."
+
+    if docker_target_user="$(pf_user_resolve_for_action)"; then
+        :
+    else
+        docker_target_user=""
+    fi
 
     # Docker repo is required by Docker Desktop on Fedora.
     dnf config-manager addrepo --overwrite --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
@@ -135,27 +142,23 @@ install_docker() {
         groupadd docker
     fi
 
-    if [[ -n "$docker_target_user" && "$docker_target_user" != "root" ]]; then
-        usermod -aG docker "$docker_target_user"
-    fi
+    pf_user_add_to_group_if_non_root "$docker_target_user" docker
 
     systemctl enable docker.service
     systemctl enable containerd.service
 
     pf_log_info "Docker service and group configuration complete."
-    if [[ -n "$docker_target_user" && "$docker_target_user" != "root" ]]; then
+    if [[ -n "$docker_target_user" ]]; then
         pf_log_info "$docker_target_user is now in the docker group. You may need to log out and log back in for this to take effect..."
     else
-        pf_log_info "Docker group exists. No non-root user was detected to add to it automatically."
+        pf_log_info "$target_user_message"
     fi
 
     tmp_rpm="$(mktemp --suffix=.rpm)"
     trap 'rm -f "$tmp_rpm"' EXIT
 
     curl -fL "$docker_desktop_url" -o "$tmp_rpm"
-    set +e
-    dnf -y install "$tmp_rpm"
-    set -e
+    pf_run_best_effort dnf -y install "$tmp_rpm"
 
     pf_log_success "Docker Desktop installed."
     pf_log_info "May fail on VMs without nested virtualization support or if running under WSL. Please check the output above for any errors."
