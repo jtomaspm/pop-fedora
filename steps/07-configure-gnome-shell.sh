@@ -3,6 +3,8 @@ set -euo pipefail
 
 # shellcheck source=../lib/logging.sh
 source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/logging.sh"
+# shellcheck source=../lib/packages.sh
+source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/packages.sh"
 # shellcheck source=../lib/users.sh
 source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/users.sh"
 # shellcheck source=../lib/session.sh
@@ -197,7 +199,7 @@ run_user gsettings set org.gnome.shell favorite-apps "[
 ]"
 
 pf_log_section "Install Papirus Icon Theme"
-wget -qO- https://git.io/papirus-icon-theme-install | sh
+pf_retry_command bash -lc 'set -euo pipefail; wget -qO- https://git.io/papirus-icon-theme-install | sh'
 
 run_user gsettings set org.gnome.desktop.interface icon-theme 'Papirus'
 run_user gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
@@ -205,7 +207,7 @@ run_user gsettings set org.gnome.desktop.interface accent-color 'slate'
 
 pf_log_section "Configure AppIndicator Extension"
 EXT="appindicatorsupport@rgcjonas.gmail.com"
-dnf install -y gnome-shell-extension-appindicator
+pf_retry_command dnf install -y gnome-shell-extension-appindicator
 enable_extension_live "$EXT"
 
 pf_log_section "Configure Gnome Settings"

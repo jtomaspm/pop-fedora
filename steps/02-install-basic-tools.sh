@@ -13,11 +13,11 @@ install_repository_releases_commands() {
 
     fedora_version="$(rpm -E %fedora)"
 
-    dnf install \
+    pf_retry_command dnf install \
         "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${fedora_version}.noarch.rpm" \
         "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${fedora_version}.noarch.rpm" \
         -y
-    dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release -y
+    pf_retry_command dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release -y
 }
 
 install_repository_releases() {
@@ -26,12 +26,12 @@ install_repository_releases() {
 
 update_core_packages() {
     pf_dnf_refresh_system
-    dnf group upgrade core -y
-    dnf4 group install core -y
+    pf_retry_command dnf group upgrade core -y
+    pf_retry_command dnf4 group install core -y
 }
 
 install_basic_tools() {
-    dnf install -y \
+    pf_retry_command dnf install -y \
         git \
         curl \
         wget \
@@ -46,7 +46,7 @@ install_basic_tools() {
 }
 
 install_dnf_plugins() {
-    dnf install dnf5-plugins dnf-plugins-core -y
+    pf_retry_command dnf install dnf5-plugins dnf-plugins-core -y
 }
 
 configure_git() {

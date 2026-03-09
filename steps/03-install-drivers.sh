@@ -7,10 +7,10 @@ source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pw
 source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/packages.sh"
 
 refresh_firmware_commands() {
-    fwupdmgr refresh --force
+    pf_retry_command fwupdmgr refresh --force
     fwupdmgr get-devices
-    fwupdmgr get-updates
-    fwupdmgr update
+    pf_retry_command fwupdmgr get-updates
+    pf_retry_command fwupdmgr update
 }
 
 refresh_firmware() {
@@ -18,10 +18,10 @@ refresh_firmware() {
 }
 
 install_multimedia_support() {
-    dnf4 group install multimedia -y
-    dnf swap 'ffmpeg-free' 'ffmpeg' --allowerasing -y
-    dnf upgrade @multimedia --setopt="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin -y
-    dnf group install -y sound-and-video
+    pf_retry_command dnf4 group install multimedia -y
+    pf_retry_command dnf swap 'ffmpeg-free' 'ffmpeg' --allowerasing -y
+    pf_retry_command dnf upgrade @multimedia --setopt="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin -y
+    pf_retry_command dnf group install -y sound-and-video
 }
 
 pf_log_section "Refresh Firmware"

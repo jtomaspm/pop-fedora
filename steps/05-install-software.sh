@@ -17,9 +17,9 @@ configure_vscode_repository_commands() {
     vscode_repo_file="/etc/yum.repos.d/vscode.repo"
     vscode_repo_config="[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc"
 
-    rpm --import "$vscode_key_url"
+    pf_retry_command rpm --import "$vscode_key_url"
     echo -e "$vscode_repo_config" | sudo tee "$vscode_repo_file" > /dev/null
-    dnf check-update -y
+    pf_retry_command dnf check-update -y
 }
 
 disable_wait_online_service() {
@@ -27,7 +27,7 @@ disable_wait_online_service() {
 }
 
 install_openh264_support() {
-    dnf install -y openh264 gstreamer1-plugin-openh264 mozilla-openh264
+    pf_retry_command dnf install -y openh264 gstreamer1-plugin-openh264 mozilla-openh264
     dnf config-manager setopt fedora-cisco-openh264.enabled=1
 }
 
@@ -58,12 +58,12 @@ install_flatpak_software() {
 }
 
 install_github_cli() {
-    dnf config-manager addrepo --overwrite --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo -y
-    dnf install gh --repo gh-cli -y
+    pf_retry_command dnf config-manager addrepo --overwrite --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo -y
+    pf_retry_command dnf install gh --repo gh-cli -y
 }
 
 install_development_tooling() {
-    dnf install -y \
+    pf_retry_command dnf install -y \
         zsh \
         zsh-autosuggestions \
         zsh-syntax-highlighting \
@@ -110,13 +110,14 @@ configure_vscode_repository() {
 }
 
 install_vscode() {
-    dnf install code -y
+    pf_retry_command dnf install code -y
 }
 
 install_docker() {
     local docker_desktop_url
     local docker_target_user
     local target_user_message
+    local tmp_rpm
 
     # Docker Desktop for Fedora
     # Official docs:
@@ -133,9 +134,9 @@ install_docker() {
     fi
 
     # Docker repo is required by Docker Desktop on Fedora.
-    dnf config-manager addrepo --overwrite --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
+    pf_retry_command dnf config-manager addrepo --overwrite --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
 
-    dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    pf_retry_command dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     systemctl enable --now docker
 
     if ! getent group docker >/dev/null; then
@@ -157,15 +158,15 @@ install_docker() {
     tmp_rpm="$(mktemp --suffix=.rpm)"
     trap 'rm -f "$tmp_rpm"' EXIT
 
-    curl -fL "$docker_desktop_url" -o "$tmp_rpm"
-    pf_run_best_effort dnf -y install "$tmp_rpm"
+    pf_retry_command curl -fL "$docker_desktop_url" -o "$tmp_rpm"
+    pf_run_best_effort pf_retry_command dnf -y install "$tmp_rpm"
 
     pf_log_success "Docker Desktop installed."
     pf_log_info "May fail on VMs without nested virtualization support or if running under WSL. Please check the output above for any errors."
 }
 
 install_desktop_apps() {
-    dnf install -y \
+    pf_retry_command dnf install -y \
         steam \
         nautilus-python \
         gnome-tweaks \
@@ -188,17 +189,17 @@ install_claude_code() {
     pf_log_info "Installing Claude Code for $target_user."
 
     if [[ "$EUID" -eq 0 ]]; then
-        sudo -u "$target_user" env \
+        pf_retry_command sudo -u "$target_user" env \
             HOME="$target_home" \
             USER="$target_user" \
             LOGNAME="$target_user" \
-            bash -lc 'curl -fsSL https://claude.ai/install.sh | bash'
+            bash -lc 'set -euo pipefail; curl -fsSL https://claude.ai/install.sh | bash'
     else
-        env \
+        pf_retry_command env \
             HOME="$target_home" \
             USER="$target_user" \
             LOGNAME="$target_user" \
-            bash -lc 'curl -fsSL https://claude.ai/install.sh | bash'
+            bash -lc 'set -euo pipefail; curl -fsSL https://claude.ai/install.sh | bash'
     fi
 
     pf_log_success "Claude Code installed for $target_user."

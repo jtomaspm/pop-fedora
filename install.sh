@@ -28,6 +28,48 @@ bootstrap_log_error() {
     printf '[ERROR] %s\n' "$message" >&2
 }
 
+bootstrap_format_command() {
+    local formatted_command
+
+    printf -v formatted_command '%q ' "$@"
+    printf '%s\n' "${formatted_command% }"
+}
+
+bootstrap_retry_command() {
+    local attempt
+    local attempts
+    local command_display
+    local delay_seconds
+    local exit_code
+
+    attempts=3
+    delay_seconds=5
+    attempt=1
+    command_display="$(bootstrap_format_command "$@")"
+
+    while true; do
+        if "$@"; then
+            if (( attempt > 1 )); then
+                bootstrap_log_info "Command succeeded on attempt $attempt/$attempts: $command_display"
+            fi
+
+            return 0
+        fi
+
+        exit_code=$?
+
+        if (( attempt >= attempts )); then
+            bootstrap_log_error "Command failed after $attempts attempt(s): $command_display"
+            return "$exit_code"
+        fi
+
+        bootstrap_log_info "Command failed on attempt $attempt/$attempts: $command_display"
+        bootstrap_log_info "Retrying in ${delay_seconds}s..."
+        sleep "$delay_seconds"
+        attempt=$((attempt + 1))
+    done
+}
+
 REPO_ROOT=""
 LIB_DIR=""
 STEPS_DIR=""
@@ -158,7 +200,7 @@ prepare_bootstrap_repo() {
 
     bootstrap_log_section "Bootstrap"
     bootstrap_log_info "Bootstrapping jtomaspm/pop-fedora@main"
-    wget -qO "$archive_path" "$REPO_ARCHIVE_URL"
+    bootstrap_retry_command wget -qO "$archive_path" "$REPO_ARCHIVE_URL"
     tar -xzf "$archive_path" -C "$TEMP_DIR"
 
     extracted_dir="$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
