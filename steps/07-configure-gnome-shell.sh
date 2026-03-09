@@ -213,9 +213,6 @@ install_and_enable_extension() {
 }
 
 configure_dash_to_dock() {
-    local shortcut_prefix
-    local index
-
     pf_log_section "Configure Dash To Dock"
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" dash-max-icon-size 42
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-trash false
@@ -227,14 +224,38 @@ configure_dash_to_dock() {
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-apps-always-in-the-edge true
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-delay 0.25
 
-    for shortcut_prefix in app-hotkey app-shift-hotkey app-ctrl-hotkey; do
-        for index in {1..10}; do
-            run_user gsettings set "$DASH_TO_DOCK_SCHEMA" "${shortcut_prefix}-${index}" "@as []"
-        done
-    done
-
-    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" shortcut "@as []"
-    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" shortcut-text "''"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-ctrl-hotkey-1 "['<Ctrl><Super>1']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-ctrl-hotkey-10 "['<Ctrl><Super>0']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-ctrl-hotkey-2 "['<Ctrl><Super>2']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-ctrl-hotkey-3 "['<Ctrl><Super>3']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-ctrl-hotkey-4 "['<Ctrl><Super>4']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-ctrl-hotkey-5 "['<Ctrl><Super>5']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-ctrl-hotkey-6 "['<Ctrl><Super>6']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-ctrl-hotkey-7 "['<Ctrl><Super>7']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-ctrl-hotkey-8 "['<Ctrl><Super>8']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-ctrl-hotkey-9 "['<Ctrl><Super>9']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-hotkey-1 "['<Super>1']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-hotkey-10 "['<Super>0']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-hotkey-2 "['<Super>2']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-hotkey-3 "['<Super>3']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-hotkey-4 "['<Super>4']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-hotkey-5 "['<Super>5']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-hotkey-6 "['<Super>6']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-hotkey-7 "['<Super>7']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-hotkey-8 "['<Super>8']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-hotkey-9 "['<Super>9']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-shift-hotkey-1 "['<Shift><Super>1']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-shift-hotkey-10 "['<Shift><Super>0']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-shift-hotkey-2 "['<Shift><Super>2']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-shift-hotkey-3 "['<Shift><Super>3']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-shift-hotkey-4 "['<Shift><Super>4']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-shift-hotkey-5 "['<Shift><Super>5']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-shift-hotkey-6 "['<Shift><Super>6']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-shift-hotkey-7 "['<Shift><Super>7']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-shift-hotkey-8 "['<Shift><Super>8']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" app-shift-hotkey-9 "['<Shift><Super>9']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" shortcut "['<Super>q']"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" shortcut-text "'<Super>q'"
 }
 
 reapply_extension_live() {
