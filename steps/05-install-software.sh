@@ -19,7 +19,7 @@ configure_vscode_repository_commands() {
 
     pf_retry_command rpm --import "$vscode_key_url"
     echo -e "$vscode_repo_config" | sudo tee "$vscode_repo_file" > /dev/null
-    pf_retry_command dnf check-update -y
+    pf_retry_command_allowing_exit_codes "0 100" dnf check-update -y
 }
 
 disable_wait_online_service() {
@@ -118,6 +118,7 @@ install_docker() {
     local docker_target_user
     local target_user_message
     local tmp_rpm
+    local tmp_rpm_trap_command
 
     # Docker Desktop for Fedora
     # Official docs:
@@ -156,7 +157,8 @@ install_docker() {
     fi
 
     tmp_rpm="$(mktemp --suffix=.rpm)"
-    trap 'rm -f "$tmp_rpm"' EXIT
+    printf -v tmp_rpm_trap_command 'rm -f -- %q' "$tmp_rpm"
+    trap "$tmp_rpm_trap_command" EXIT
 
     pf_retry_command curl -fL "$docker_desktop_url" -o "$tmp_rpm"
     pf_run_best_effort pf_retry_command dnf -y install "$tmp_rpm"

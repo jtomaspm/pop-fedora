@@ -11,12 +11,33 @@ if [[ -z "${POP_FEDORA_PACKAGES_SH:-}" ]]; then
         printf '%s\n' "${formatted_command% }"
     }
 
-    pf_retry_command() {
+    pf_retry_exit_code_is_allowed() {
+        local exit_code
+        local allowed_exit_code
+
+        exit_code="$1"
+        shift
+
+        for allowed_exit_code in "$@"; do
+            if [[ "$exit_code" == "$allowed_exit_code" ]]; then
+                return 0
+            fi
+        done
+
+        return 1
+    }
+
+    pf_retry_command_allowing_exit_codes() {
+        local -a allowed_exit_codes
         local attempt
         local attempts
         local command_display
         local delay_seconds
+        local errexit_was_set
         local exit_code
+
+        read -r -a allowed_exit_codes <<< "$1"
+        shift
 
         attempts="${POP_FEDORA_RETRY_ATTEMPTS:-$POP_FEDORA_RETRY_ATTEMPTS_DEFAULT}"
         delay_seconds="${POP_FEDORA_RETRY_DELAY_SECONDS:-$POP_FEDORA_RETRY_DELAY_SECONDS_DEFAULT}"
@@ -24,15 +45,25 @@ if [[ -z "${POP_FEDORA_PACKAGES_SH:-}" ]]; then
         command_display="$(pf_format_command "$@")"
 
         while true; do
-            if "$@"; then
+            errexit_was_set=0
+            if [[ $- == *e* ]]; then
+                errexit_was_set=1
+            fi
+
+            set +e
+            "$@"
+            exit_code=$?
+            if (( errexit_was_set )); then
+                set -e
+            fi
+
+            if pf_retry_exit_code_is_allowed "$exit_code" "${allowed_exit_codes[@]}"; then
                 if (( attempt > 1 )); then
                     pf_log_success "Command succeeded on attempt $attempt/$attempts: $command_display"
                 fi
 
                 return 0
             fi
-
-            exit_code=$?
 
             if (( attempt >= attempts )); then
                 pf_log_error "Command failed after $attempts attempt(s): $command_display"
@@ -44,6 +75,10 @@ if [[ -z "${POP_FEDORA_PACKAGES_SH:-}" ]]; then
             sleep "$delay_seconds"
             attempt=$((attempt + 1))
         done
+    }
+
+    pf_retry_command() {
+        pf_retry_command_allowing_exit_codes "0" "$@"
     }
 
     pf_dnf_refresh_system() {
