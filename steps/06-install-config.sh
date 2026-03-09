@@ -7,7 +7,7 @@ source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pw
 source "${POP_FEDORA_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd -P)}/users.sh"
 
 readonly REPO_ROOT="${POP_FEDORA_REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
-readonly BASHRC_PROFILE_LINE='[ -f "$XDG_CONFIG_HOME/shell/profile" ] && source "$XDG_CONFIG_HOME/shell/profile"'
+readonly BASHRC_PROFILE_LINE='[ -f "$HOME/.config/shell/profile" ] && source "$HOME/.config/shell/profile"'
 
 target_user=""
 target_group=""
