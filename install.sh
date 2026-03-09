@@ -83,7 +83,8 @@ POP_FEDORA_GIT_USER_EMAIL="${POP_FEDORA_GIT_USER_EMAIL:-}"
 
 declare -a STEPS=()
 declare -a REQUESTED_STEP_NUMBERS=()
-declare -a RUN_STEPS=()
+declare -a COMPLETED_STEPS=()
+declare -a APPLIED_CHANGES=()
 
 prompt_for_hostname() {
     local current_hostname
@@ -115,6 +116,8 @@ set_new_hostname() {
     else
         sudo hostnamectl set-hostname "$POP_FEDORA_HOSTNAME"
     fi
+
+    APPLIED_CHANGES+=("[hostname] Set system hostname to $POP_FEDORA_HOSTNAME")
 }
 
 git_config_get() {
@@ -394,21 +397,72 @@ print_summary() {
 
     pf_log_section "Summary"
 
-    if [[ "${#RUN_STEPS[@]}" -eq 0 ]]; then
-        pf_log_info "Ran: none"
+    if [[ -n "$FAILED_STEP" ]]; then
+        pf_log_error "The installer stopped before finishing all requested steps."
+    else
+        pf_log_success "The installer has finished running."
+    fi
+
+    if [[ "${#APPLIED_CHANGES[@]}" -eq 0 ]]; then
+        pf_log_info "Changes applied in this run: none"
+    else
+        pf_log_info "Changes applied in this run:"
+        for entry in "${APPLIED_CHANGES[@]}"; do
+            pf_log_list_item "$entry"
+        done
+    fi
+
+    if [[ "${#COMPLETED_STEPS[@]}" -eq 0 ]]; then
+        pf_log_info "Completed steps: none"
     else
         pf_log_info "Completed steps:"
-        for entry in "${RUN_STEPS[@]}"; do
+        for entry in "${COMPLETED_STEPS[@]}"; do
             pf_log_list_item "$entry"
         done
     fi
 
     if [[ -n "$FAILED_STEP" ]]; then
-        pf_log_error "Failed: $FAILED_STEP"
+        pf_log_error "Failed step: $FAILED_STEP"
         return 0
     fi
 
-    pf_log_success "All requested steps completed."
+    pf_log_success "All requested steps completed successfully."
+}
+
+prompt_for_reboot() {
+    local reply
+
+    if [[ ! -t 0 ]]; then
+        pf_log_info "Skipping reboot prompt because the installer is not running interactively."
+        return 0
+    fi
+
+    pf_log_section "Reboot"
+    pf_log_info "A reboot is recommended to apply all changes."
+
+    while true; do
+        read -r -p "Reboot now? [Y/n]: " reply
+
+        case "$reply" in
+            ""|[Yy]|[Yy][Ee][Ss])
+                pf_log_info "Rebooting now."
+                if [[ "$EUID" -eq 0 ]]; then
+                    systemctl reboot
+                    return $?
+                fi
+
+                sudo systemctl reboot
+                return $?
+                ;;
+            [Nn]|[Nn][Oo])
+                pf_log_info "Reboot skipped. Reboot later to apply all changes."
+                return 0
+                ;;
+            *)
+                pf_log_warning "Please answer yes or no."
+                ;;
+        esac
+    done
 }
 
 main() {
@@ -448,7 +502,10 @@ main() {
         step_number="$(step_number_from_file "$step_file")"
         step_description="$(describe_step "$step_file")"
         if run_step "$step_file"; then
-            RUN_STEPS+=("[$step_number] $step_description")
+            COMPLETED_STEPS+=("[$step_number] $step_description")
+            if [[ -s "$step_file" ]]; then
+                APPLIED_CHANGES+=("[$step_number] $step_description")
+            fi
             pf_log_success "Completed [$step_number] $step_description"
         else
             exit_code=$?
@@ -460,6 +517,7 @@ main() {
     done
 
     print_summary
+    prompt_for_reboot
 }
 
 main "$@"
