@@ -104,6 +104,7 @@ wget -qO- https://git.io/papirus-icon-theme-install | sh
 
 run_user gsettings set org.gnome.desktop.interface icon-theme 'Papirus'
 run_user gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+run_user gsettings set org.gnome.desktop.interface accent-color 'slate'
 
 pf_log_section "Configure AppIndicator Extension"
 EXT="appindicatorsupport@rgcjonas.gmail.com"
