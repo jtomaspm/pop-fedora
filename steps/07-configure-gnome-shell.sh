@@ -213,6 +213,9 @@ install_and_enable_extension() {
 }
 
 configure_dash_to_dock() {
+    local shortcut_prefix
+    local index
+
     pf_log_section "Configure Dash To Dock"
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" dash-max-icon-size 42
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-trash false
@@ -223,6 +226,15 @@ configure_dash_to_dock() {
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-apps-at-top true
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-apps-always-in-the-edge true
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-delay 0.25
+
+    for shortcut_prefix in app-hotkey app-shift-hotkey app-ctrl-hotkey; do
+        for index in {1..10}; do
+            run_user gsettings set "$DASH_TO_DOCK_SCHEMA" "${shortcut_prefix}-${index}" "@as []"
+        done
+    done
+
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" shortcut "@as []"
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" shortcut-text "''"
 }
 
 reapply_extension_live() {
