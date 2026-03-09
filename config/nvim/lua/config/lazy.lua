@@ -30,7 +30,7 @@ require("lazy").setup({
 
 	require("config.plugins.guess-indent"), -- Detect tabstop and shiftwidth automatically
 	require("config.plugins.git-signs"), -- Adds git related signs to the gutter, as well as utilities for managing changes
-	require("config.plugins.which-key"), -- Useful plugin to show you pending keybinds.
+	-- require("config.plugins.which-key"), -- Useful plugin to show you pending keybinds.
 	require("config.plugins.telescope"), -- Fuzzy Finder (files, lsp, etc)
 
 	require("config.plugins.lazy-dev"), -- `lazydev` configures Lua LSP for your Neovim config, runtime and plugins
