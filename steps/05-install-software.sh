@@ -170,6 +170,7 @@ install_docker() {
 install_desktop_apps() {
     pf_retry_command dnf install -y \
         steam \
+        lutris \
         nautilus-python \
         gnome-tweaks \
         ghostty
