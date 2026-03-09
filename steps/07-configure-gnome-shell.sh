@@ -218,6 +218,10 @@ configure_dash_to_dock() {
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-trash false
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-mounts false
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" custom-theme-shrink true
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-apps-button true
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-apps-at-top true
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-apps-always-in-the-edge true
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-delay 0.25
 }
 
 reapply_extension_live() {
