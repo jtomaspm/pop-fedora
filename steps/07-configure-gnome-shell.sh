@@ -112,6 +112,22 @@ enable_extension_live() {
     return 0
 }
 
+configure_custom_keybinding() {
+    local keybinding_id="$1"
+    local name="$2"
+    local command="$3"
+    local binding="$4"
+    local keybinding_path="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/${keybinding_id}/"
+    local keybinding_schema="org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:${keybinding_path}"
+
+    run_user gsettings set "$keybinding_schema" name "$name"
+    run_user gsettings set "$keybinding_schema" command "$command"
+    run_user gsettings set "$keybinding_schema" binding "$binding"
+}
+
+readonly CUSTOM_FILE_MANAGER_KEYBINDING_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-file-manager/"
+readonly CUSTOM_TERMINAL_KEYBINDING_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-terminal/"
+
 pf_log_section "Configure Dash Favorites"
 run_user gsettings set org.gnome.shell favorite-apps "[
 'app.zen_browser.zen.desktop',
@@ -149,16 +165,9 @@ run_user gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac
 pf_log_info "Setting keyboard shortcuts"
 
 run_user gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings \
-    "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-file-manager/']"
-run_user gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-file-manager/ name "FileManager"
-run_user gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-file-manager/ command "nautilus --new-window"
-run_user gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-file-manager/ binding "<Super>e"
-
-run_user gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings \
-    "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-terminal/']"
-run_user gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-terminal/ name "Terminal"
-run_user gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-terminal/ command "ghostty"
-run_user gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-terminal/ binding "<Super>Return"
+    "['${CUSTOM_FILE_MANAGER_KEYBINDING_PATH}', '${CUSTOM_TERMINAL_KEYBINDING_PATH}']"
+configure_custom_keybinding "custom-file-manager" "FileManager" "nautilus --new-window" "<Super>e"
+configure_custom_keybinding "custom-terminal" "Terminal" "ghostty" "<Super>Return"
 
 run_user gsettings set org.gnome.desktop.wm.keybindings close "['<Super>q', '<Alt>F4']"
 run_user gsettings set org.gnome.settings-daemon.plugins.media-keys www "['<Super>b']"
