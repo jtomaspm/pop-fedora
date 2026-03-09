@@ -176,6 +176,41 @@ install_desktop_apps() {
         ghostty
 }
 
+install_cascadia_mono_nerd_font() {
+    local font_archive_url
+    local font_directory
+    local tmp_zip
+
+    font_archive_url="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/CascadiaMono.zip"
+    font_directory="/usr/local/share/fonts/cascadia-mono-nerd-font"
+    tmp_zip="$(mktemp --suffix=.zip)"
+    trap 'rm -f -- "$tmp_zip"' RETURN
+
+    if ! command -v fc-cache >/dev/null 2>&1; then
+        pf_log_info "Installing fontconfig so the system font cache can be refreshed."
+        pf_retry_command dnf install -y fontconfig
+    fi
+
+    pf_log_info "Installing Cascadia Mono Nerd Font system-wide."
+
+    mkdir -p "$font_directory"
+    find "$font_directory" -mindepth 1 -maxdepth 1 -type f \( -iname '*.ttf' -o -iname '*.otf' \) -delete
+
+    pf_retry_command curl -fL "$font_archive_url" -o "$tmp_zip"
+    unzip -joq "$tmp_zip" '*.ttf' '*.otf' -d "$font_directory"
+
+    if ! find "$font_directory" -mindepth 1 -maxdepth 1 -type f \( -iname '*.ttf' -o -iname '*.otf' \) | grep -q .; then
+        pf_log_error "Cascadia Mono Nerd Font archive did not contain any installable font files."
+        return 1
+    fi
+
+    fc-cache -f "$font_directory"
+    pf_log_success "Cascadia Mono Nerd Font installed system-wide."
+
+    trap - RETURN
+    rm -f -- "$tmp_zip"
+}
+
 install_claude_code() {
     local target_user
     local target_home
@@ -277,6 +312,9 @@ install_docker
 
 pf_log_section "Install Desktop Applications"
 install_desktop_apps
+
+pf_log_section "Install System Fonts"
+install_cascadia_mono_nerd_font
 
 pf_log_section "Install Global CLI Tools"
 install_global_tools
