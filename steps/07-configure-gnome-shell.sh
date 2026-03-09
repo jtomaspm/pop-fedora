@@ -217,6 +217,7 @@ configure_dash_to_dock() {
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" dash-max-icon-size 42
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-trash false
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-mounts false
+    run_user gsettings set "$DASH_TO_DOCK_SCHEMA" multi-monitor true
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" custom-theme-shrink true
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-show-apps-button true
     run_user gsettings set "$DASH_TO_DOCK_SCHEMA" show-apps-at-top true
