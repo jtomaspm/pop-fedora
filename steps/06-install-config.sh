@@ -128,6 +128,7 @@ pf_log_section "Install Shell Configuration"
 resolve_target_user
 
 ensure_directory "$target_home/.config/shell"
+ensure_directory "$target_home/.config/ghostty"
 ensure_directory "$target_home/.config/scripts"
 
 install_config_file "config/zsh/.zshrc" "$target_home/.zshrc"
